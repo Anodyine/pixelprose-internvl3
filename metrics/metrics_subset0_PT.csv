@@ -1,0 +1,4 @@
+log,prompting_method,model_config,num_records,avg_gt_len,avg_pred_len,bleu,meteor
+logs/eval_subset0_PT_N.jsonl,0,PT,5,115.4,34.4,1.0546668895727844,13.501793522158998
+logs/eval_subset0_PT_D.jsonl,1,PT,5,115.4,92.2,7.075925665656554,24.00261054921498
+logs/eval_subset0_PT_D_FS.jsonl,2,PT,5,115.4,121.2,6.918166473422529,29.834648080507016
