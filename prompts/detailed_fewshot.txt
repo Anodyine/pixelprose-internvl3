@@ -1,6 +1,1 @@
-You are given example image–caption pairs, followed by a new image.
-
-First, read the exemplar captions and note the level of detail and style.
-Then, for the final image, provide a detailed, comprehensive caption describing all key objects, attributes, actions, relationships, and context.
-
-Now describe the final image.
+Provide a detailed, comprehensive caption describing all key objects, attributes, actions, and context in the query image. Use the exemplar image–caption pairs above as a guide for the level of detail and style, but focus entirely on the query image.
