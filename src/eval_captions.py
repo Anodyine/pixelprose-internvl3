@@ -221,6 +221,18 @@ def main():
     )
     print(f"[INFO] Writing outputs to: {out_path}")
 
+    # if we are using few-shot, also log the exact exemplars used for this run
+    exemplar_log_path = None
+    if args.prompting_method == 2 and exemplars is not None:
+        exemplar_log_path = out_dir / (
+            f"eval_subset{args.subset_index}_{model_tag}_{prompt_tag}_exemplars.jsonl"
+        )
+        print(f"[INFO] Writing exemplar info to: {exemplar_log_path}")
+        with exemplar_log_path.open("w", encoding="utf-8") as exf:
+            for ex in exemplars:
+                exf.write(json.dumps(ex, ensure_ascii=False) + "\n")
+
+
     generation_config = dict(max_new_tokens=256, do_sample=False)
 
     num_evaluated = 0
