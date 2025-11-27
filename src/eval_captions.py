@@ -9,8 +9,7 @@ from typing import Dict, Any, List
 import torch
 from transformers import AutoModel, AutoTokenizer
 
-# Reuse your existing image loader from test_internvl_caption.py
-from test_internvl_caption import load_image
+from src.test_internvl_caption import load_image
 
 
 PROMPT_FILES = {
