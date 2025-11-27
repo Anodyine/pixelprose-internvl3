@@ -25,6 +25,7 @@ import nltk
 nltk.data.path.insert(0, ".venv/nltk_data")
 from nltk.translate.meteor_score import meteor_score
 from nltk.tokenize import word_tokenize
+import evaluate
 
 
 
@@ -67,14 +68,50 @@ def compute_meteor(preds: List[str], refs: List[str]) -> float:
     avg_score = sum(scores) / len(scores) if scores else 0.0
     return float(avg_score * 100.0)
 
+# Global handle for CIDEr metric (lazy-loaded)
+_CIDER_METRIC = None
+
+def get_cider_metric():
+    global _CIDER_METRIC
+    if _CIDER_METRIC is None:
+        # Uses the Kamichanw/CIDEr metric on the Hub
+        _CIDER_METRIC = evaluate.load("Kamichanw/CIDEr")
+    return _CIDER_METRIC
+
+def compute_cider(preds: List[str], refs: List[str]) -> float:
+    """
+    Corpus CIDEr using the Hugging Face evaluate implementation.
+
+    preds: list of hypothesis captions (strings)
+    refs:  list of reference captions (strings)
+
+    We have exactly one reference per prediction, so we wrap each ref
+    in a singleton list, as the metric expects List[List[str]].
+    """
+    if not preds:
+        return 0.0
+
+    metric = get_cider_metric()
+
+    # Metric expects:
+    #   predictions: List[str]
+    #   references: List[List[str]]  (list of reference captions per prediction)
+    references_wrapped = [[r or ""] for r in refs]
+    predictions = [p or "" for p in preds]
+
+    result = metric.compute(predictions=predictions, references=references_wrapped)
+    # The metric returns something like {"CIDEr": value}
+    score = float(result.get("CIDEr", 0.0))
+
+    return score
+
 # Registry of metric name -> function
 METRIC_FNS: Dict[str, Callable[[List[str], List[str]], float]] = {
     "bleu": compute_bleu,
     "meteor": compute_meteor,
-    # "cider": compute_cider,
+    "cider": compute_cider,
     # "bertscore": compute_bertscore,
 }
-
 
 # ---------------------------------------------------------------------
 # Helpers to load logs and compute basic stats
