@@ -1,0 +1,9 @@
+.venv/
+__pycache__/
+*.pyc
+
+# Hugging Face cache (optional, but usually a good idea)
+~/.cache/huggingface/
+
+# PixelProse subsets
+data/pixelprose_subset*/
