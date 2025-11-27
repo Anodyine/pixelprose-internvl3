@@ -12,6 +12,7 @@ from tqdm import tqdm
 
 
 def download_image(url: str, out_path: Path, timeout: float = 10.0) -> bool:
+    """Download image from URL and save as JPEG. Returns True on success, False otherwise."""
     try:
         resp = requests.get(url, timeout=timeout)
         resp.raise_for_status()
@@ -24,43 +25,63 @@ def download_image(url: str, out_path: Path, timeout: float = 10.0) -> bool:
         return False
 
 
-def main(
-    num_samples: int = 2_000,
-    out_dir: str = "data/pixelprose_subset",
-    seed: int = 42,
-):
+def main(dataset_index: int, num_samples: int):
+    """
+    Build a PixelProse subset with *exactly* num_samples successfully downloaded images,
+    if possible.
+
+    Args:
+        dataset_index: integer index used to choose output directory and shuffle seed.
+        num_samples: number of successful image downloads to collect.
+    """
+    # Output dir: data/pixelprose_subset{index}
+    out_dir = f"data/pixelprose_subset{dataset_index}"
+    seed = 42 + dataset_index
+
     out_dir_path = Path(out_dir)
     img_dir = out_dir_path / "images"
     out_dir_path.mkdir(parents=True, exist_ok=True)
     img_dir.mkdir(parents=True, exist_ok=True)
 
+    print(f"=== Building PixelProse subset {dataset_index} ===")
+    print(f"Output dir      : {out_dir_path}")
+    print(f"Requested images: {num_samples}")
+    print(f"Shuffle seed    : {seed}")
+
     print("Loading PixelProse from Hugging Face...")
     ds = load_dataset("tomg-group-umd/pixelprose", split="train", streaming=False)
 
     print("Columns:", ds.column_names)
-    # Expect something like: ['uid', 'url', 'key', 'status', 'original_caption', 'vlm_model', 'vlm_caption', ...]
+    total_size = len(ds)
+    print(f"Dataset size    : {total_size}")
 
-    print(f"Dataset size: {len(ds)}")
     print("Shuffling...")
     ds = ds.shuffle(seed=seed)
-
-    num_samples = min(num_samples, len(ds))
-    print(f"Selecting first {num_samples} examples...")
-    ds_small = ds.select(range(num_samples))
 
     meta_path = out_dir_path / "metadata.jsonl"
 
     kept = 0
+    tried = 0
+
+    # Progress bar now tracks *kept* images, not rows scanned
+    pbar = tqdm(total=num_samples, desc="Collected images", unit="img")
+
     with meta_path.open("w", encoding="utf-8") as f:
-        for i, ex in enumerate(tqdm(ds_small, desc="Downloading subset")):
+        # Iterate over the entire shuffled dataset until we have num_samples
+        for ex in ds:
+            if kept >= num_samples:
+                break
+
+            tried += 1
+
             url: Optional[str] = ex.get("url")
             caption: Optional[str] = ex.get("vlm_caption") or ex.get("original_caption")
 
             if not url or not caption:
-                print(f"[WARN] Skipping sample {i} due to missing url or caption")
+                # Missing necessary fields; skip
                 continue
 
-            img_fname = f"{kept:06d}.jpg"
+            img_fname = f"{kept:06d}.jpg"  # IDs local to this subset: 0..num_samples-1
             img_path = img_dir / img_fname
 
             ok = download_image(url, img_path)
@@ -79,11 +100,43 @@ def main(
             }
             f.write(json.dumps(record, ensure_ascii=False) + "\n")
             kept += 1
+            pbar.update(1)
 
-    print(f"Done. Requested {num_samples} examples, kept {kept}.")
-    print(f"Data dir: {out_dir_path}")
-    print(f"Metadata: {meta_path}")
+    pbar.close()
+
+    print(f"Done scanning dataset.")
+    print(f"Tried examples   : {tried}")
+    print(f"Kept images      : {kept}")
+    print(f"Requested images : {num_samples}")
+    print(f"Data dir         : {out_dir_path}")
+    print(f"Metadata         : {meta_path}")
+
+    if kept < num_samples:
+        print(
+            f"[WARN] Could not collect the requested {num_samples} images. "
+            f"Only {kept} valid downloads were available in the entire shuffled dataset."
+        )
 
 
 if __name__ == "__main__":
-    main()
+    import argparse
+
+    parser = argparse.ArgumentParser(
+        description=(
+            "Build a PixelProse subset with a given index and a target number of "
+            "successfully downloaded images."
+        )
+    )
+    parser.add_argument(
+        "dataset_index",
+        type=int,
+        help="Integer index to distinguish this subset (used in directory name and shuffle seed).",
+    )
+    parser.add_argument(
+        "num_samples",
+        type=int,
+        help="Number of successfully downloaded images to collect.",
+    )
+
+    args = parser.parse_args()
+    main(args.dataset_index, args.num_samples)
