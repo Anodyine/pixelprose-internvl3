@@ -105,8 +105,6 @@ def main():
     model = AutoModel.from_pretrained(
         model_id,
         torch_dtype=torch.bfloat16,
-        low_cpu_mem_usage=True,
-        # keep flash-attn off for first test
         use_flash_attn=False,
         trust_remote_code=True,
         device_map="auto",

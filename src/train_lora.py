@@ -17,9 +17,15 @@ from typing import Any, Dict, List, Tuple
 
 import torch
 from torch.utils.data import Dataset, DataLoader
-from transformers import AutoTokenizer
+from transformers import AutoModel, AutoTokenizer
 
 from src.eval_captions import load_prompt
+from src.test_internvl_caption import load_image
+import contextlib
+
+from peft import get_peft_model
+
+from src.lora_config import make_default_lora_config
 from src.test_internvl_caption import load_image
 
 
@@ -329,6 +335,86 @@ def main() -> None:
     print(f"  attention_mask shape:{tuple(batch['attention_mask'].shape)} (B, T)")
     print(f"  labels shape:        {tuple(batch['labels'].shape)}         (B, T)")
     print(f"  attention_mask sums: {[int(x) for x in batch['attention_mask'].sum(dim=1)]}")
+    
+    # --------------------------------------------------------
+    # Step 2: Load base InternVL model and wrap with LoRA
+    # --------------------------------------------------------
+    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    model_id = "OpenGVLab/InternVL3_5-2B-Instruct"
+
+    print(f"[INFO] Loading base InternVL model for LoRA: {model_id}")
+    base_model = AutoModel.from_pretrained(
+        model_id,
+        torch_dtype=torch.bfloat16,
+        use_flash_attn=False,
+        trust_remote_code=True,
+        device_map=None,          # single-GPU training path; we move to device manually
+    )
+
+    # Build LoRA config and wrap the whole InternVLChatModel
+    lora_config = make_default_lora_config()
+    model = get_peft_model(base_model, lora_config)
+    model.print_trainable_parameters()
+
+    # We will only train the language_model branch for this first test
+    model.to(device)
+    model.train()
+
+    # --------------------------------------------------------
+    # Step 3: Run a single forward pass on this batch (text-only)
+    # --------------------------------------------------------
+    lm = model.language_model  # Qwen LM wrapped with LoRA
+
+    input_ids = batch["input_ids"].to(device)
+    attention_mask = batch["attention_mask"].to(device)
+    labels = batch["labels"].to(device)
+
+    print("[INFO] Setting up optimizer on LoRA-trainable parameters...")
+    optimizer = torch.optim.AdamW(
+        [p for p in lm.parameters() if p.requires_grad],
+        lr=1e-4,
+        weight_decay=0.01,
+    )
+
+    print("[INFO] Running one training step (forward + backward + optimizer.step)...")
+
+    if device.type == "cuda":
+        autocast_ctx = torch.cuda.amp.autocast(dtype=torch.bfloat16)
+    else:
+        autocast_ctx = contextlib.nullcontext()
+
+    optimizer.zero_grad(set_to_none=True)
+
+    with autocast_ctx:
+        outputs = lm(
+            input_ids=input_ids,
+            attention_mask=attention_mask,
+            labels=labels,
+        )
+        loss = outputs.loss
+
+    loss_value = loss.item()
+    print(f"[INFO] Loss before backward: {loss_value:.4f}")
+
+    # Backprop through LoRA parameters
+    loss.backward()
+
+    # (Optional) check a simple grad norm to confirm grads exist
+    total_norm = 0.0
+    count = 0
+    for p in lm.parameters():
+        if p.requires_grad and p.grad is not None:
+            param_norm = p.grad.data.norm(2).item()
+            total_norm += param_norm ** 2
+            count += 1
+    if count > 0:
+        total_norm = total_norm ** 0.5
+    print(f"[INFO] Grad L2 norm over LoRA params: {total_norm:.4f}")
+
+    optimizer.step()
+
+    print("[INFO] One optimizer step completed.")
+
 
 
 if __name__ == "__main__":
