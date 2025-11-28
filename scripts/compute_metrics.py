@@ -104,13 +104,49 @@ def compute_cider(preds: List[str], refs: List[str]) -> float:
     score = float(result.get("CIDEr", 0.0))
 
     return score
+# Global handle for BERTScore metric (lazy-loaded)
+_BERTSCORE_METRIC = None
+
+def get_bertscore_metric():
+    global _BERTSCORE_METRIC
+    if _BERTSCORE_METRIC is None:
+        # This uses the 'bert-score' metric from Hugging Face evaluate
+        _BERTSCORE_METRIC = evaluate.load("bertscore")
+    return _BERTSCORE_METRIC
+
+def compute_bertscore(preds: List[str], refs: List[str]) -> float:
+    """
+    Corpus BERTScore (F1), averaged over all examples.
+    Returns score on 0–100 scale for consistency with BLEU/METEOR/CIDEr.
+    """
+    if not preds:
+        return 0.0
+
+    metric = get_bertscore_metric()
+
+    # BERTScore expects:
+    #   predictions: List[str]
+    #   references:  List[str]
+    result = metric.compute(
+        predictions=[p or "" for p in preds],
+        references=[r or "" for r in refs],
+        lang="en",
+        model_type="bert-base-uncased",  # lighter, good enough for this project
+        rescale_with_baseline=True,
+    )
+
+    # result["f1"] is a list of per-example scores in [0, 1]
+    f1_scores = result["f1"]
+    avg_f1 = sum(f1_scores) / len(f1_scores)
+
+    return float(avg_f1 * 100.0)
 
 # Registry of metric name -> function
 METRIC_FNS: Dict[str, Callable[[List[str], List[str]], float]] = {
     "bleu": compute_bleu,
     "meteor": compute_meteor,
     "cider": compute_cider,
-    # "bertscore": compute_bertscore,
+    "bertscore": compute_bertscore,
 }
 
 # ---------------------------------------------------------------------
@@ -209,7 +245,7 @@ def write_csv(rows: List[Dict[str, Any]], out_csv: Path) -> None:
         for r in rows:
             writer.writerow({k: r.get(k, "") for k in fieldnames})
 
-    print(f"[INFO] Wrote metrics CSV to: {out_csv}")
+    print(f"\n[INFO] Wrote metrics CSV to: {out_csv}")
 
 
 def print_table(rows: List[Dict[str, Any]]) -> None:
@@ -282,8 +318,6 @@ def main():
 
     if args.out_csv is not None:
         write_csv(rows, Path(args.out_csv))
-
-    print("\n[INFO] Done. Add METEOR/CIDEr/BERTScore later.")
 
 
 if __name__ == "__main__":
