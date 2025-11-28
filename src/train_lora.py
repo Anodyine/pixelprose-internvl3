@@ -120,10 +120,8 @@ class PixelProseLoraDataset(Dataset):
 
         img_path = self.subset_dir / img_rel
 
-        # Same image pipeline as eval: returns patches [num_patches, 3, H, W] on CPU
         pixel_values = load_image(str(img_path), max_num=12)
 
-        # Build text: prompt instruction plus ground truth caption
         question = f"<image>\n{self.prompt_text}"
         full_text = question + "\n" + caption
 
@@ -141,10 +139,11 @@ class PixelProseLoraDataset(Dataset):
         return {
             "id": int(rec["id"]),
             "image_file": img_rel,
-            "pixel_values": pixel_values,  # CPU tensor [num_patches, 3, H, W]
+            "pixel_values": pixel_values,      # [num_patches, 3, H, W]
             "input_ids": input_ids,
             "attention_mask": attention_mask,
             "labels": labels,
+            "caption": caption,
         }
 
 
@@ -162,6 +161,7 @@ def make_collate_fn(pad_token_id: int):
         labels_list = [b["labels"] for b in batch]
         ids_list = [b["id"] for b in batch]
         image_files = [b["image_file"] for b in batch]
+        captions = [b["caption"] for b in batch]
 
         max_len = max(x.size(0) for x in input_ids_list)
 
@@ -199,6 +199,7 @@ def make_collate_fn(pad_token_id: int):
         return {
             "ids": ids_list,
             "image_files": image_files,
+            "captions": captions,
             "pixel_values": pixel_values_all,
             "num_patches_list": num_patches_list,
             "input_ids": batch_input_ids,
