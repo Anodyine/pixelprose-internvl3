@@ -14,6 +14,7 @@ import argparse
 import json
 from pathlib import Path
 from typing import Any, Dict, List, Tuple
+import time
 
 import torch
 from torch.utils.data import Dataset, DataLoader
@@ -466,6 +467,7 @@ def main() -> None:
     global_step = 0
     print(f"[INFO] Starting training for {args.num_epochs} epoch(s), "
           f"max_steps={args.max_steps}...")
+    train_start_time = time.time()
 
     for epoch in range(args.num_epochs):
         print(f"\n[INFO] Epoch {epoch + 1}/{args.num_epochs}")
@@ -532,6 +534,19 @@ def main() -> None:
             break
 
     print(f"\n[INFO] Training finished at global_step={global_step}.")
+    
+    # -------------------------------
+    # Timing summary
+    # -------------------------------
+    train_end_time = time.time()
+    elapsed = train_end_time - train_start_time
+    mins = elapsed / 60
+    hrs = mins / 60
+    print("[INFO] ------------------------------------------")
+    print(f"[INFO] Training elapsed time: {elapsed:.2f} seconds")
+    print(f"[INFO] = {mins:.2f} minutes")
+    print(f"[INFO] = {hrs:.2f} hours")
+    print("[INFO] ------------------------------------------")
 
     # --------------------------------------------------------
     # Save LoRA adapter (language_model only)
