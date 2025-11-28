@@ -299,6 +299,31 @@ def main() -> None:
         default=4,
         help="Batch size for DataLoader sanity check. Default: 4",
     )
+    parser.add_argument(
+        "--num-epochs",
+        type=int,
+        default=1,
+        help="Number of training epochs over the train set. Default: 1",
+    )
+    parser.add_argument(
+        "--max-steps",
+        type=int,
+        default=50,
+        help="Optional cap on training steps (batches) for quick runs. Default: 50",
+    )
+    parser.add_argument(
+        "--output-dir",
+        type=str,
+        default="checkpoints/internvl3_5_2b_lora_pixelprose",
+        help="Base directory to save LoRA adapter. Default: checkpoints/internvl3_5_2b_lora_pixelprose",
+    )
+    parser.add_argument(
+        "--cuda-device",
+        type=int,
+        default=0,
+        help="Which CUDA device to run on (single-GPU). Default: 0",
+    )
+
     args = parser.parse_args()
 
     subset_dir = Path(f"data/pixelprose_subset{args.subset_index}")
@@ -379,125 +404,151 @@ def main() -> None:
         pin_memory=False,
     )
 
-    print("[INFO] Fetching one batch from DataLoader...")
-    batch = next(iter(train_loader))
+    # Optional: quick sanity batch
+    print("[INFO] Fetching one batch from DataLoader for sanity check...")
+    debug_batch = next(iter(train_loader))
 
-    print("\n[INFO] Batch summary:")
-    print(f"  ids:                 {batch['ids']}")
-    print(f"  num_patches_list:    {batch['num_patches_list']}")
-    print(f"  pixel_values shape:  {tuple(batch['pixel_values'].shape)}  "
+    print("\n[INFO] Debug batch summary:")
+    print(f"  ids:                 {debug_batch['ids']}")
+    print(f"  num_patches_list:    {debug_batch['num_patches_list']}")
+    print(f"  pixel_values shape:  {tuple(debug_batch['pixel_values'].shape)}  "
           "(sum_patches, 3, H, W)")
-    print(f"  input_ids shape:     {tuple(batch['input_ids'].shape)}      (B, T)")
-    print(f"  attention_mask shape:{tuple(batch['attention_mask'].shape)} (B, T)")
-    print(f"  labels shape:        {tuple(batch['labels'].shape)}         (B, T)")
-    print(f"  attention_mask sums: {[int(x) for x in batch['attention_mask'].sum(dim=1)]}")
-    
-    # --------------------------------------------------------
-    # Step 2: Load base InternVL model and wrap with LoRA
-    # --------------------------------------------------------
-    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-    model_id = "OpenGVLab/InternVL3_5-2B-Instruct"
+    print(f"  input_ids shape:     {tuple(debug_batch['input_ids'].shape)}      (B, T)")
+    print(f"  attention_mask shape:{tuple(debug_batch['attention_mask'].shape)} (B, T)")
+    print(f"  labels shape:        {tuple(debug_batch['labels'].shape)}         (B, T)")
+    print(f"  attention_mask sums: "
+          f"{[int(x) for x in debug_batch['attention_mask'].sum(dim=1)]}")
 
-    print(f"[INFO] Loading base InternVL model for LoRA: {model_id}")
+    # --------------------------------------------------------
+    # Load base InternVL model and wrap language_model with LoRA
+    # --------------------------------------------------------
+    device = torch.device(f"cuda:{args.cuda_device}" if torch.cuda.is_available() else "cpu")
+    model_id = MODEL_ID
+
+    print(f"[INFO] Loading base InternVL model for LoRA on {device}: {model_id}")
     model = AutoModel.from_pretrained(
         model_id,
         torch_dtype=torch.bfloat16,
-        low_cpu_mem_usage=True,   # optional; you can drop this if you prefer
+        low_cpu_mem_usage=True,   # optional
         use_flash_attn=False,
         trust_remote_code=True,
-        device_map=None,          # single-GPU path
+        device_map=None,          # SINGLE GPU
     )
 
-    # Build LoRA config and wrap ONLY the language_model (Qwen LM)
+    # LoRA on language_model only
     lora_config = make_default_lora_config()
     print("[INFO] Wrapping model.language_model with LoRA...")
     lm = get_peft_model(model.language_model, lora_config)
     lm.print_trainable_parameters()
-    model.language_model = lm  # plug LoRA-wrapped LM back into InternVL
+    model.language_model = lm
 
     model.to(device)
     model.train()
-    
+
     # Tell InternVL which token is the image-context marker
     img_context_token_id = tokenizer.convert_tokens_to_ids(IMG_CONTEXT_TOKEN)
     model.img_context_token_id = img_context_token_id
-    print(f"[INFO] IMG_CONTEXT_TOKEN id: {img_context_token_id}, num_image_token: {model.num_image_token}")
+    print(f"[INFO] IMG_CONTEXT_TOKEN id: {img_context_token_id}, "
+          f"num_image_token: {model.num_image_token}")
 
-    # --------------------------------------------------------
-    # Multimodal training step: build proper <IMG_CONTEXT> text
-    # and call the full InternVLChatModel.forward().
-    # --------------------------------------------------------
-    pixel_values = batch["pixel_values"].to(device, dtype=torch.bfloat16)
-    num_patches_list = batch["num_patches_list"]           # list[int]
-    captions = batch["captions"]                           # list[str]
-
-    # Use the same prompt text + max_length you used in the dataset
-    # If you named them differently, adjust these names.
-    prompt_text = train_prompt_text
-    max_length = train_max_length  # whatever you used (e.g. 512)
-
-    input_ids, attention_mask, labels = build_mm_inputs_for_batch(
-        tokenizer=tokenizer,
-        captions=captions,
-        num_patches_list=num_patches_list,
-        prompt_text=prompt_text,
-        num_image_token=model.num_image_token,
-        max_length=max_length,
-        device=device,
-    )
-
-    # All patches are "used" for now
-    image_flags = torch.ones(
-        pixel_values.size(0), 1,
-        dtype=torch.long,
-        device=device,
-    )
-
-    print("[INFO] Setting up optimizer on LoRA-trainable parameters (language_model only)...")
+    # Optimizer over LoRA params only
     optimizer = torch.optim.AdamW(
         [p for p in model.language_model.parameters() if p.requires_grad],
         lr=1e-4,
         weight_decay=0.01,
     )
 
-    print("[INFO] Running one *true* multimodal training step...")
-
     if device.type == "cuda":
         autocast_ctx = torch.cuda.amp.autocast(dtype=torch.bfloat16)
     else:
         autocast_ctx = contextlib.nullcontext()
 
-    optimizer.zero_grad(set_to_none=True)
+    global_step = 0
+    print(f"[INFO] Starting training for {args.num_epochs} epoch(s), "
+          f"max_steps={args.max_steps}...")
 
-    with autocast_ctx:
-        outputs = model(
-            pixel_values=pixel_values,
-            input_ids=input_ids,
-            attention_mask=attention_mask,
-            labels=labels,
-            image_flags=image_flags,
-        )
-        loss = outputs.loss
+    for epoch in range(args.num_epochs):
+        print(f"\n[INFO] Epoch {epoch + 1}/{args.num_epochs}")
+        for step, batch in enumerate(train_loader):
+            if global_step >= args.max_steps:
+                print(f"[INFO] Reached max_steps={args.max_steps}, stopping training.")
+                break
 
-    loss_value = loss.item()
-    print(f"[INFO] Loss before backward (multimodal, with IMG_CONTEXT): {loss_value:.4f}")
+            model.train()
 
-    loss.backward()
+            pixel_values = batch["pixel_values"].to(device, dtype=torch.bfloat16)
+            num_patches_list = batch["num_patches_list"]
+            captions = batch["captions"]
 
-    total_norm = 0.0
-    count = 0
-    for p in model.language_model.parameters():
-        if p.requires_grad and p.grad is not None:
-            param_norm = p.grad.data.norm(2).item()
-            total_norm += param_norm ** 2
-            count += 1
-    if count > 0:
-        total_norm = total_norm ** 0.5
-    print(f"[INFO] Grad L2 norm over LoRA params: {total_norm:.4f}")
+            input_ids, attention_mask, labels = build_mm_inputs_for_batch(
+                tokenizer=tokenizer,
+                captions=captions,
+                num_patches_list=num_patches_list,
+                prompt_text=train_prompt_text,
+                num_image_token=model.num_image_token,
+                max_length=train_max_length,
+                device=device,
+            )
 
-    optimizer.step()
+            image_flags = torch.ones(
+                pixel_values.size(0), 1,
+                dtype=torch.long,
+                device=device,
+            )
 
-    print("[INFO] One multimodal optimizer step completed.")
+            optimizer.zero_grad(set_to_none=True)
+
+            with autocast_ctx:
+                outputs = model(
+                    pixel_values=pixel_values,
+                    input_ids=input_ids,
+                    attention_mask=attention_mask,
+                    labels=labels,
+                    image_flags=image_flags,
+                )
+                loss = outputs.loss
+
+            loss_value = float(loss.item())
+            loss.backward()
+
+            # Optional grad norm monitor
+            if (global_step % 10) == 0:
+                total_norm = 0.0
+                count = 0
+                for p in model.language_model.parameters():
+                    if p.requires_grad and p.grad is not None:
+                        param_norm = p.grad.data.norm(2).item()
+                        total_norm += param_norm ** 2
+                        count += 1
+                if count > 0:
+                    total_norm = total_norm ** 0.5
+                print(f"[STEP {global_step}] loss={loss_value:.4f}, "
+                      f"grad_norm={total_norm:.4f}")
+
+            optimizer.step()
+            global_step += 1
+
+        if global_step >= args.max_steps:
+            break
+
+    print(f"\n[INFO] Training finished at global_step={global_step}.")
+
+    # --------------------------------------------------------
+    # Save LoRA adapter (language_model only)
+    # --------------------------------------------------------
+    from pathlib import Path as _Path
+
+    base_out = _Path(args.output_dir)
+    out_dir = base_out / f"subset{args.subset_index}_r{lora_config.r}_a{lora_config.lora_alpha}"
+    out_dir.mkdir(parents=True, exist_ok=True)
+
+    print(f"[INFO] Saving LoRA adapter to: {out_dir}")
+    model.language_model.save_pretrained(out_dir)
+    tokenizer.save_pretrained(out_dir)
+
+    print("[INFO] Done. You can now load this adapter in eval_captions.py via "
+          "PeftModel.from_pretrained(base_model, <adapter_path>).")
+
 
 if __name__ == "__main__":
     main()
