@@ -32,6 +32,10 @@ from src.test_internvl_caption import load_image
 MODEL_ID = "OpenGVLab/InternVL3_5-2B-Instruct"
 MIN_TRAIN_ID = 1000
 
+IMG_START_TOKEN = "<img>"
+IMG_END_TOKEN = "</img>"
+IMG_CONTEXT_TOKEN = "<IMG_CONTEXT>"
+
 
 def load_metadata(meta_path: Path) -> List[Dict[str, Any]]:
     records: List[Dict[str, Any]] = []
@@ -209,6 +213,54 @@ def make_collate_fn(pad_token_id: int):
 
     return collate
 
+def build_mm_inputs_for_batch(
+    tokenizer,
+    captions,
+    num_patches_list,
+    prompt_text: str,
+    num_image_token: int,
+    max_length: int,
+    device: torch.device,
+):
+    """
+    Build input_ids / attention_mask / labels with the correct number of
+    <IMG_CONTEXT> tokens per sample, so InternVL can inject visual features.
+    """
+    queries = []
+    for cap, num_patches in zip(captions, num_patches_list):
+        # How many visual tokens this sample needs
+        n_vis_tokens = num_image_token * num_patches
+
+        image_tokens = (
+            IMG_START_TOKEN
+            + IMG_CONTEXT_TOKEN * n_vis_tokens
+            + IMG_END_TOKEN
+        )
+
+        # Simple instruction format: [image tokens] + prompt + caption
+        text = (
+            image_tokens
+            + "\n"
+            + prompt_text.strip()
+            + "\n"
+            + cap
+        )
+        queries.append(text)
+
+    # Tokenize as a batch
+    enc = tokenizer(
+        queries,
+        padding=True,
+        truncation=True,
+        max_length=max_length,
+        return_tensors="pt",
+    )
+    input_ids = enc["input_ids"].to(device)
+    attention_mask = enc["attention_mask"].to(device)
+    labels = input_ids.clone()  # standard causal LM; we can mask later if desired
+
+    return input_ids, attention_mask, labels
+
 
 def main() -> None:
     parser = argparse.ArgumentParser(
@@ -310,6 +362,9 @@ def main() -> None:
         tokenizer=tokenizer,
         max_length=args.max_length,
     )
+    # Save prompt + max_length for multimodal input building later
+    train_prompt_text = train_ds.prompt_text
+    train_max_length = args.max_length
 
     print(f"[INFO] Built training dataset with {len(train_ds)} samples.")
 
@@ -318,7 +373,7 @@ def main() -> None:
     train_loader = DataLoader(
         train_ds,
         batch_size=args.batch_size,
-        shuffle=False,
+        shuffle=True,
         num_workers=4,
         collate_fn=collate_fn,
         pin_memory=False,
@@ -344,40 +399,68 @@ def main() -> None:
     model_id = "OpenGVLab/InternVL3_5-2B-Instruct"
 
     print(f"[INFO] Loading base InternVL model for LoRA: {model_id}")
-    base_model = AutoModel.from_pretrained(
+    model = AutoModel.from_pretrained(
         model_id,
         torch_dtype=torch.bfloat16,
+        low_cpu_mem_usage=True,   # optional; you can drop this if you prefer
         use_flash_attn=False,
         trust_remote_code=True,
-        device_map=None,          # single-GPU training path; we move to device manually
+        device_map=None,          # single-GPU path
     )
 
-    # Build LoRA config and wrap the whole InternVLChatModel
+    # Build LoRA config and wrap ONLY the language_model (Qwen LM)
     lora_config = make_default_lora_config()
-    model = get_peft_model(base_model, lora_config)
-    model.print_trainable_parameters()
+    print("[INFO] Wrapping model.language_model with LoRA...")
+    lm = get_peft_model(model.language_model, lora_config)
+    lm.print_trainable_parameters()
+    model.language_model = lm  # plug LoRA-wrapped LM back into InternVL
 
-    # We will only train the language_model branch for this first test
     model.to(device)
     model.train()
+    
+    # Tell InternVL which token is the image-context marker
+    img_context_token_id = tokenizer.convert_tokens_to_ids(IMG_CONTEXT_TOKEN)
+    model.img_context_token_id = img_context_token_id
+    print(f"[INFO] IMG_CONTEXT_TOKEN id: {img_context_token_id}, num_image_token: {model.num_image_token}")
 
     # --------------------------------------------------------
-    # Step 3: Run a single forward pass on this batch (text-only)
+    # Multimodal training step: build proper <IMG_CONTEXT> text
+    # and call the full InternVLChatModel.forward().
     # --------------------------------------------------------
-    lm = model.language_model  # Qwen LM wrapped with LoRA
+    pixel_values = batch["pixel_values"].to(device, dtype=torch.bfloat16)
+    num_patches_list = batch["num_patches_list"]           # list[int]
+    captions = batch["captions"]                           # list[str]
 
-    input_ids = batch["input_ids"].to(device)
-    attention_mask = batch["attention_mask"].to(device)
-    labels = batch["labels"].to(device)
+    # Use the same prompt text + max_length you used in the dataset
+    # If you named them differently, adjust these names.
+    prompt_text = train_prompt_text
+    max_length = train_max_length  # whatever you used (e.g. 512)
 
-    print("[INFO] Setting up optimizer on LoRA-trainable parameters...")
+    input_ids, attention_mask, labels = build_mm_inputs_for_batch(
+        tokenizer=tokenizer,
+        captions=captions,
+        num_patches_list=num_patches_list,
+        prompt_text=prompt_text,
+        num_image_token=model.num_image_token,
+        max_length=max_length,
+        device=device,
+    )
+
+    # All patches are "used" for now
+    image_flags = torch.ones(
+        pixel_values.size(0), 1,
+        dtype=torch.long,
+        device=device,
+    )
+
+    print("[INFO] Setting up optimizer on LoRA-trainable parameters (language_model only)...")
     optimizer = torch.optim.AdamW(
-        [p for p in lm.parameters() if p.requires_grad],
+        [p for p in model.language_model.parameters() if p.requires_grad],
         lr=1e-4,
         weight_decay=0.01,
     )
 
-    print("[INFO] Running one training step (forward + backward + optimizer.step)...")
+    print("[INFO] Running one *true* multimodal training step...")
 
     if device.type == "cuda":
         autocast_ctx = torch.cuda.amp.autocast(dtype=torch.bfloat16)
@@ -387,23 +470,23 @@ def main() -> None:
     optimizer.zero_grad(set_to_none=True)
 
     with autocast_ctx:
-        outputs = lm(
+        outputs = model(
+            pixel_values=pixel_values,
             input_ids=input_ids,
             attention_mask=attention_mask,
             labels=labels,
+            image_flags=image_flags,
         )
         loss = outputs.loss
 
     loss_value = loss.item()
-    print(f"[INFO] Loss before backward: {loss_value:.4f}")
+    print(f"[INFO] Loss before backward (multimodal, with IMG_CONTEXT): {loss_value:.4f}")
 
-    # Backprop through LoRA parameters
     loss.backward()
 
-    # (Optional) check a simple grad norm to confirm grads exist
     total_norm = 0.0
     count = 0
-    for p in lm.parameters():
+    for p in model.language_model.parameters():
         if p.requires_grad and p.grad is not None:
             param_norm = p.grad.data.norm(2).item()
             total_norm += param_norm ** 2
@@ -414,9 +497,7 @@ def main() -> None:
 
     optimizer.step()
 
-    print("[INFO] One optimizer step completed.")
-
-
+    print("[INFO] One multimodal optimizer step completed.")
 
 if __name__ == "__main__":
     main()
