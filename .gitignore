@@ -13,3 +13,5 @@ logs/**/*
 
 #metrics
 metrics/**/*
+
+checkpoints/**/*
