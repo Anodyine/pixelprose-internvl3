@@ -28,6 +28,7 @@ import torch
 from transformers import AutoModel, AutoTokenizer
 
 from src.test_internvl_caption import load_image
+from peft import PeftModel
 
 
 PROMPT_FILES = {
@@ -71,38 +72,59 @@ def load_prompt(prompting_method: int, prompt_dir: Path = Path("prompts")) -> st
 
 def load_model(use_finetuned: bool):
     """
-    Load the base or (later) LoRA-finetuned InternVL model.
+    Load the base or LoRA-finetuned InternVL model.
 
-    For now, both paths load the same base InternVL 3.5 2B Instruct model.
-    After we train LoRA, we can swap in PEFT here.
+    When use_finetuned=True, we:
+      - load the base InternVL 3.5 2B Instruct model
+      - load a PEFT LoRA adapter on top
     """
+    base_id = "OpenGVLab/InternVL3_5-2B-Instruct"
+
     if use_finetuned:
-        model_id = os.getenv(
+        lora_path = os.getenv(
             "INTERNVL_FINETUNED_PATH",
-            "OpenGVLab/InternVL3_5-2B-Instruct",
+            "checkpoints/internvl3_5_2b_lora_pixelprose/subset2_r32_a64",
         )
-        print(f"[INFO] use_finetuned=True. Loading model from: {model_id}")
+        print(f"[INFO] use_finetuned=True. Base: {base_id}, LoRA adapter: {lora_path}")
+
+        base_model = AutoModel.from_pretrained(
+            base_id,
+            torch_dtype=torch.bfloat16,
+            low_cpu_mem_usage=True,
+            use_flash_attn=False,
+            trust_remote_code=True,
+            device_map="auto",
+        ).eval()
+
+        model = PeftModel.from_pretrained(
+            base_model,
+            lora_path,
+        ).eval()
+
+        tokenizer = AutoTokenizer.from_pretrained(
+            base_id,
+            trust_remote_code=True,
+            use_fast=False,
+        )
+        return model, tokenizer
+
     else:
-        model_id = "OpenGVLab/InternVL3_5-2B-Instruct"
-        print(f"[INFO] use_finetuned=False. Loading pretrained model: {model_id}")
+        print(f"[INFO] use_finetuned=False. Loading pretrained model: {base_id}")
+        model = AutoModel.from_pretrained(
+            base_id,
+            torch_dtype=torch.bfloat16,
+            low_cpu_mem_usage=True,
+            use_flash_attn=False,
+            trust_remote_code=True,
+            device_map="auto",
+        ).eval()
 
-    model = AutoModel.from_pretrained(
-        model_id,
-        torch_dtype=torch.bfloat16,
-        low_cpu_mem_usage=True,
-        use_flash_attn=False,
-        trust_remote_code=True,
-        device_map="auto",
-    ).eval()
-
-    tokenizer = AutoTokenizer.from_pretrained(
-        model_id,
-        trust_remote_code=True,
-        use_fast=False,
-    )
-
-    return model, tokenizer
-
+        tokenizer = AutoTokenizer.from_pretrained(
+            base_id,
+            trust_remote_code=True,
+            use_fast=False,
+        )
+        return model, tokenizer
 
 def select_exemplars(
     records: List[Dict[str, Any]],
@@ -352,7 +374,7 @@ def main():
     print(f"[INFO] Using {len(eval_records)} eval records for all prompting styles.")
 
     # 7) Run all prompting methods in sequence on the SAME eval set
-    for prompting_method in (0, 1, 2):
+    for prompting_method in (0,1,2):
         print(f"\n[INFO] Starting evaluation for prompting_method={prompting_method}...")
         evaluate_prompting_method(
             prompting_method=prompting_method,

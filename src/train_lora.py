@@ -24,7 +24,7 @@ from src.eval_captions import load_prompt
 from src.test_internvl_caption import load_image
 import contextlib
 
-from peft import get_peft_model
+from peft import get_peft_model, PeftModel
 
 from src.lora_config import make_default_lora_config
 from src.test_internvl_caption import load_image
@@ -313,16 +313,23 @@ def main() -> None:
         help="Optional cap on training steps (batches) for quick runs. Default: 50",
     )
     parser.add_argument(
-        "--output-dir",
-        type=str,
-        default="checkpoints/internvl3_5_2b_lora_pixelprose",
-        help="Base directory to save LoRA adapter. Default: checkpoints/internvl3_5_2b_lora_pixelprose",
-    )
-    parser.add_argument(
         "--cuda-device",
         type=int,
         default=0,
         help="Which CUDA device to run on (single-GPU). Default: 0",
+    )
+    parser.add_argument(
+        "--resume-from",
+        type=str,
+        default=None,
+        help="Path to an existing LoRA adapter to continue training from.",
+    )
+    parser.add_argument(
+        "--output-dir",
+        type=str,
+        default=None,
+        help="Directory to save the LoRA adapter. "
+            "If not set, a default path based on subset index is used.",
     )
 
     args = parser.parse_args()
@@ -436,12 +443,21 @@ def main() -> None:
         device_map=None,          # SINGLE GPU
     )
 
-    # LoRA on language_model only
-    lora_config = make_default_lora_config()
-    print("[INFO] Wrapping model.language_model with LoRA...")
-    lm = get_peft_model(model.language_model, lora_config)
+    # Build or resume LoRA adapter on the language_model (Qwen LM)
+    if args.resume_from:
+        print(f"[INFO] Resuming LoRA from adapter at: {args.resume_from}")
+        lm = PeftModel.from_pretrained(
+            model.language_model,
+            args.resume_from,
+            is_trainable=True,  # keep LoRA params trainable
+        )
+    else:
+        print("[INFO] Creating new LoRA adapter for language_model...")
+        lora_config = make_default_lora_config()
+        lm = get_peft_model(model.language_model, lora_config)
+
     lm.print_trainable_parameters()
-    model.language_model = lm
+    model.language_model = lm  # plug LoRA LM back into InternVL
 
     model.to(device)
     model.train()
@@ -551,19 +567,21 @@ def main() -> None:
     # --------------------------------------------------------
     # Save LoRA adapter (language_model only)
     # --------------------------------------------------------
-    from pathlib import Path as _Path
 
-    base_out = _Path(args.output_dir)
-    out_dir = base_out / f"subset{args.subset_index}_r{lora_config.r}_a{lora_config.lora_alpha}"
+    # Choose output directory
+    if args.output_dir is not None:
+        out_dir = Path(args.output_dir)
+    else:
+        # Default path if none is provided
+        out_dir = Path(
+            f"checkpoints/internvl3_5_2b_lora_pixelprose/subset{args.subset_index}_r32_a64"
+        )
+
     out_dir.mkdir(parents=True, exist_ok=True)
 
     print(f"[INFO] Saving LoRA adapter to: {out_dir}")
     model.language_model.save_pretrained(out_dir)
-    tokenizer.save_pretrained(out_dir)
-
-    print("[INFO] Done. You can now load this adapter in eval_captions.py via "
-          "PeftModel.from_pretrained(base_model, <adapter_path>).")
-
+    print("[INFO] Done. You can now load this adapter in eval_captions.py via PeftModel.from_pretrained(base_model, <adapter_path>).")
 
 if __name__ == "__main__":
     main()
