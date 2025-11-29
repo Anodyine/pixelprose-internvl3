@@ -74,9 +74,10 @@ def load_model(use_finetuned: bool):
     """
     Load the base or LoRA-finetuned InternVL model.
 
-    When use_finetuned=True, we:
-      - load the base InternVL 3.5 2B Instruct model
-      - load a PEFT LoRA adapter on top
+    For FT:
+    - load the base InternVL 3.5 2B Instruct
+    - load the LoRA adapter on the *language_model* submodule
+    - plug the LoRA-wrapped LM back into the full InternVLChatModel
     """
     base_id = "OpenGVLab/InternVL3_5-2B-Instruct"
 
@@ -85,8 +86,12 @@ def load_model(use_finetuned: bool):
             "INTERNVL_FINETUNED_PATH",
             "checkpoints/internvl3_5_2b_lora_pixelprose/subset2_r32_a64",
         )
-        print(f"[INFO] use_finetuned=True. Base: {base_id}, LoRA adapter: {lora_path}")
+        print(
+            f"[INFO] use_finetuned=True. "
+            f"Base: {base_id}, LoRA adapter (language_model): {lora_path}"
+        )
 
+        # 1) Load the full InternVL base model
         base_model = AutoModel.from_pretrained(
             base_id,
             torch_dtype=torch.bfloat16,
@@ -94,19 +99,19 @@ def load_model(use_finetuned: bool):
             use_flash_attn=False,
             trust_remote_code=True,
             device_map="auto",
-        ).eval()
-
-        model = PeftModel.from_pretrained(
-            base_model,
-            lora_path,
-        ).eval()
-
-        tokenizer = AutoTokenizer.from_pretrained(
-            base_id,
-            trust_remote_code=True,
-            use_fast=False,
         )
-        return model, tokenizer
+
+        # 2) Wrap ONLY the language_model submodule with the saved LoRA adapter
+        lm = base_model.language_model
+        lm = PeftModel.from_pretrained(
+            lm,
+            lora_path,
+            is_trainable=False,  # eval-time, no gradients
+        )
+        lm.eval()
+        base_model.language_model = lm
+
+        model = base_model.eval()
 
     else:
         print(f"[INFO] use_finetuned=False. Loading pretrained model: {base_id}")
@@ -119,12 +124,14 @@ def load_model(use_finetuned: bool):
             device_map="auto",
         ).eval()
 
-        tokenizer = AutoTokenizer.from_pretrained(
-            base_id,
-            trust_remote_code=True,
-            use_fast=False,
-        )
-        return model, tokenizer
+    tokenizer = AutoTokenizer.from_pretrained(
+        base_id,
+        trust_remote_code=True,
+        use_fast=False,
+    )
+
+    return model, tokenizer
+
 
 def select_exemplars(
     records: List[Dict[str, Any]],
@@ -177,8 +184,14 @@ def evaluate_prompting_method(
         f"eval_subset{subset_index}_{model_tag}_{prompt_tag}.jsonl"
     )
     print(f"[INFO] [{prompt_tag}] Writing outputs to: {out_path}")
-
-    generation_config = dict(max_new_tokens=256, do_sample=False)
+    
+    generation_config = dict(
+        max_new_tokens=200,
+        do_sample=False,             # keep deterministic for eval
+        repetition_penalty=1.15,     # >1.0 penalizes repeats
+        no_repeat_ngram_size=4,      # disallow exact 4-gram repeats
+        length_penalty=0.9,          # slightly favors shorter outputs
+    )
 
     num_evaluated = 0
 

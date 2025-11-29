@@ -1,1 +1,9 @@
-Provide a detailed, comprehensive caption describing all key objects, attributes, actions, and context in the query image. Use the exemplar image–caption pairs above as a guide for the level of detail and style, but focus entirely on the query image.
+Provide a detailed, comprehensive caption describing all key objects, attributes, actions, and context in the query image.
+
+Use the exemplar image–caption pairs above only as a guide for the level of detail and writing style.
+
+Important:
+• Do NOT copy any sentences, phrases, or wording from the exemplar captions.  
+• Describe the query image in your own words.  
+• Focus entirely on the query image and avoid mentioning details that are not present.  
+• Avoid repetition and do not restate the same idea multiple times.  
