@@ -190,7 +190,6 @@ def evaluate_prompting_method(
         do_sample=False,             # keep deterministic for eval
         repetition_penalty=1.15,     # >1.0 penalizes repeats
         no_repeat_ngram_size=4,      # disallow exact 4-gram repeats
-        length_penalty=0.9,          # slightly favors shorter outputs
     )
 
     num_evaluated = 0
@@ -387,7 +386,7 @@ def main():
     print(f"[INFO] Using {len(eval_records)} eval records for all prompting styles.")
 
     # 7) Run all prompting methods in sequence on the SAME eval set
-    for prompting_method in (0,1,2):
+    for prompting_method in (2,):
         print(f"\n[INFO] Starting evaluation for prompting_method={prompting_method}...")
         evaluate_prompting_method(
             prompting_method=prompting_method,

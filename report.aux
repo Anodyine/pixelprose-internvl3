@@ -1,0 +1,62 @@
+\relax 
+\@writefile{toc}{\contentsline {section}{\numberline {1}Introduction}{1}{}\protected@file@percent }
+\citation{singla2024pixelsproselargedataset}
+\citation{wang2025internvl35advancingopensourcemultimodal}
+\citation{hu2021loralowrankadaptationlarge}
+\citation{alayrac2022flamingovisuallanguagemodel}
+\@writefile{toc}{\contentsline {section}{\numberline {2}Related Work}{2}{}\protected@file@percent }
+\newlabel{sec:related}{{2}{2}{}{section.2}{}}
+\@writefile{toc}{\contentsline {subsection}{\numberline {2.1}Dense Captioning and PixelProse}{2}{}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsection}{\numberline {2.2}InternVL 3.5}{2}{}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsection}{\numberline {2.3}LoRA Fine-Tuning}{2}{}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsection}{\numberline {2.4}Few-Shot Prompting for Vision--Language Models}{2}{}\protected@file@percent }
+\@writefile{toc}{\contentsline {section}{\numberline {3}Method}{3}{}\protected@file@percent }
+\newlabel{sec:method}{{3}{3}{}{section.3}{}}
+\@writefile{toc}{\contentsline {subsection}{\numberline {3.1}Dataset and Subset Construction}{3}{}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsection}{\numberline {3.2}Base Model and Image Preprocessing}{3}{}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsection}{\numberline {3.3}LoRA Configuration and Training Pipeline}{3}{}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsection}{\numberline {3.4}Prompting Configurations}{4}{}\protected@file@percent }
+\@writefile{lof}{\contentsline {figure}{\numberline {1}{\ignorespaces Exemplar 1 used in the multimodal few-shot prompt: a detailed fashion style image and caption pair.}}{6}{}\protected@file@percent }
+\providecommand*\caption@xref[2]{\@setref\relax\@undefined{#1}}
+\newlabel{fig:exemplar-0}{{1}{6}{}{figure.1}{}}
+\@writefile{lof}{\contentsline {figure}{\numberline {2}{\ignorespaces Exemplar 2 used in the multimodal few-shot prompt: a detailed crest image and caption pair.}}{7}{}\protected@file@percent }
+\newlabel{fig:exemplar-1}{{2}{7}{}{figure.2}{}}
+\@writefile{lof}{\contentsline {figure}{\numberline {3}{\ignorespaces Exemplar 3 used in the multimodal few-shot prompt: a long, stylized caption for a cartoon quote image. This exemplar is directly involved in the exemplar confusion failure shown in Figure~\ref {fig:gallery-ft-dfs-failure-id3}.}}{8}{}\protected@file@percent }
+\newlabel{fig:exemplar-2}{{3}{8}{}{figure.3}{}}
+\@writefile{lot}{\contentsline {table}{\numberline {1}{\ignorespaces Quantitative results on 500 held-out PixelProse images from subset 2 (451 for FT + D\_FS). Average lengths are in tokens.}}{9}{}\protected@file@percent }
+\newlabel{tab:metrics}{{1}{9}{}{table.1}{}}
+\@writefile{toc}{\contentsline {subsection}{\numberline {3.5}Evaluation Protocol and Metrics}{9}{}\protected@file@percent }
+\@writefile{toc}{\contentsline {section}{\numberline {4}Experiments and Results}{9}{}\protected@file@percent }
+\newlabel{sec:results}{{4}{9}{}{section.4}{}}
+\@writefile{toc}{\contentsline {subsection}{\numberline {4.1}Quantitative Results}{9}{}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsection}{\numberline {4.2}VRAM Usage and Computational Cost}{10}{}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsection}{\numberline {4.3}Qualitative Galleries}{10}{}\protected@file@percent }
+\newlabel{sec:galleries}{{4.3}{10}{}{subsection.4.3}{}}
+\@writefile{lof}{\contentsline {figure}{\numberline {4}{\ignorespaces Qualitative gallery for ID 3 (woman in gray hoodie).}}{11}{}\protected@file@percent }
+\newlabel{fig:gallery-id3}{{4}{11}{}{figure.4}{}}
+\@writefile{lof}{\contentsline {figure}{\numberline {5}{\ignorespaces Qualitative gallery for ID 4 (stainless steel folding table).}}{12}{}\protected@file@percent }
+\newlabel{fig:gallery-id4}{{5}{12}{}{figure.5}{}}
+\@writefile{lof}{\contentsline {figure}{\numberline {6}{\ignorespaces Qualitative gallery for ID 5 (cowboy on a horse, line drawing).}}{13}{}\protected@file@percent }
+\newlabel{fig:gallery-id5}{{6}{13}{}{figure.6}{}}
+\@writefile{lof}{\contentsline {figure}{\numberline {7}{\ignorespaces Qualitative gallery for ID 6 (ornate Gothic doorway drawing).}}{14}{}\protected@file@percent }
+\newlabel{fig:gallery-id6}{{7}{14}{}{figure.7}{}}
+\@writefile{lof}{\contentsline {figure}{\numberline {8}{\ignorespaces Qualitative gallery for ID 7 (rainbow over hill).}}{15}{}\protected@file@percent }
+\newlabel{fig:gallery-id7}{{8}{15}{}{figure.8}{}}
+\@writefile{lof}{\contentsline {figure}{\numberline {9}{\ignorespaces Failure case for ID 3: the FT + D\_FS model confuses an exemplar with the query image and outputs the exemplar's caption verbatim.}}{16}{}\protected@file@percent }
+\newlabel{fig:gallery-ft-dfs-failure-id3}{{9}{16}{}{figure.9}{}}
+\@writefile{toc}{\contentsline {section}{\numberline {5}Discussion}{17}{}\protected@file@percent }
+\newlabel{sec:discussion}{{5}{17}{}{section.5}{}}
+\@writefile{toc}{\contentsline {paragraph}{Effectiveness of Few-Shot Prompting.}{17}{}\protected@file@percent }
+\@writefile{toc}{\contentsline {paragraph}{Limited Gains from Small-Scale LoRA Fine-Tuning.}{17}{}\protected@file@percent }
+\@writefile{toc}{\contentsline {paragraph}{Failure of the Combined FT + Few-Shot Setting.}{17}{}\protected@file@percent }
+\@writefile{toc}{\contentsline {paragraph}{Memory Cost of Multimodal Few-Shot Prompting.}{17}{}\protected@file@percent }
+\@writefile{toc}{\contentsline {paragraph}{Implications for Future Systems.}{17}{}\protected@file@percent }
+\bibstyle{plain}
+\bibdata{references}
+\bibcite{alayrac2022flamingovisuallanguagemodel}{1}
+\@writefile{toc}{\contentsline {section}{\numberline {6}Conclusion}{18}{}\protected@file@percent }
+\newlabel{sec:conclusion}{{6}{18}{}{section.6}{}}
+\bibcite{hu2021loralowrankadaptationlarge}{2}
+\bibcite{singla2024pixelsproselargedataset}{3}
+\bibcite{wang2025internvl35advancingopensourcemultimodal}{4}
+\gdef \@abspage@last{19}
