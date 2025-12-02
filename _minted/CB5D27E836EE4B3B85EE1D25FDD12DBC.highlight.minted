@@ -1,0 +1,147 @@
+\begin{MintedVerbatim}[commandchars=\\\{\}]
+\PYG{c+c1}{\PYGZsh{} src/test\PYGZus{}internvl\PYGZus{}caption.py}
+\PYG{c+c1}{\PYGZsh{} load\PYGZus{}image is used in other files}
+\PYG{k+kn}{import}\PYG{+w}{ }\PYG{n+nn}{math}
+\PYG{k+kn}{from}\PYG{+w}{ }\PYG{n+nn}{pathlib}\PYG{+w}{ }\PYG{k+kn}{import} \PYG{n}{Path}
+
+\PYG{k+kn}{import}\PYG{+w}{ }\PYG{n+nn}{torch}
+\PYG{k+kn}{import}\PYG{+w}{ }\PYG{n+nn}{torchvision}\PYG{n+nn}{.}\PYG{n+nn}{transforms}\PYG{+w}{ }\PYG{k}{as}\PYG{+w}{ }\PYG{n+nn}{T}
+\PYG{k+kn}{from}\PYG{+w}{ }\PYG{n+nn}{PIL}\PYG{+w}{ }\PYG{k+kn}{import} \PYG{n}{Image}
+\PYG{k+kn}{from}\PYG{+w}{ }\PYG{n+nn}{torchvision}\PYG{n+nn}{.}\PYG{n+nn}{transforms}\PYG{n+nn}{.}\PYG{n+nn}{functional}\PYG{+w}{ }\PYG{k+kn}{import} \PYG{n}{InterpolationMode}
+\PYG{k+kn}{from}\PYG{+w}{ }\PYG{n+nn}{transformers}\PYG{+w}{ }\PYG{k+kn}{import} \PYG{n}{AutoModel}\PYG{p}{,} \PYG{n}{AutoTokenizer}
+
+\PYG{n}{IMAGENET\PYGZus{}MEAN} \PYG{o}{=} \PYG{p}{(}\PYG{l+m+mf}{0.485}\PYG{p}{,} \PYG{l+m+mf}{0.456}\PYG{p}{,} \PYG{l+m+mf}{0.406}\PYG{p}{)}
+\PYG{n}{IMAGENET\PYGZus{}STD} \PYG{o}{=} \PYG{p}{(}\PYG{l+m+mf}{0.229}\PYG{p}{,} \PYG{l+m+mf}{0.224}\PYG{p}{,} \PYG{l+m+mf}{0.225}\PYG{p}{)}
+
+
+\PYG{k}{def}\PYG{+w}{ }\PYG{n+nf}{build\PYGZus{}transform}\PYG{p}{(}\PYG{n}{input\PYGZus{}size}\PYG{p}{:} \PYG{n+nb}{int}\PYG{p}{)}\PYG{p}{:}
+    \PYG{n}{mean}\PYG{p}{,} \PYG{n}{std} \PYG{o}{=} \PYG{n}{IMAGENET\PYGZus{}MEAN}\PYG{p}{,} \PYG{n}{IMAGENET\PYGZus{}STD}
+    \PYG{k}{return} \PYG{n}{T}\PYG{o}{.}\PYG{n}{Compose}\PYG{p}{(}
+        \PYG{p}{[}
+            \PYG{n}{T}\PYG{o}{.}\PYG{n}{Lambda}\PYG{p}{(}\PYG{k}{lambda} \PYG{n}{img}\PYG{p}{:} \PYG{n}{img}\PYG{o}{.}\PYG{n}{convert}\PYG{p}{(}\PYG{l+s+s2}{\PYGZdq{}}\PYG{l+s+s2}{RGB}\PYG{l+s+s2}{\PYGZdq{}}\PYG{p}{)} \PYG{k}{if} \PYG{n}{img}\PYG{o}{.}\PYG{n}{mode} \PYG{o}{!=} \PYG{l+s+s2}{\PYGZdq{}}\PYG{l+s+s2}{RGB}\PYG{l+s+s2}{\PYGZdq{}} \PYG{k}{else} \PYG{n}{img}\PYG{p}{)}\PYG{p}{,}
+            \PYG{n}{T}\PYG{o}{.}\PYG{n}{Resize}\PYG{p}{(}\PYG{p}{(}\PYG{n}{input\PYGZus{}size}\PYG{p}{,} \PYG{n}{input\PYGZus{}size}\PYG{p}{)}\PYG{p}{,} \PYG{n}{interpolation}\PYG{o}{=}\PYG{n}{InterpolationMode}\PYG{o}{.}\PYG{n}{BICUBIC}\PYG{p}{)}\PYG{p}{,}
+            \PYG{n}{T}\PYG{o}{.}\PYG{n}{ToTensor}\PYG{p}{(}\PYG{p}{)}\PYG{p}{,}
+            \PYG{n}{T}\PYG{o}{.}\PYG{n}{Normalize}\PYG{p}{(}\PYG{n}{mean}\PYG{o}{=}\PYG{n}{mean}\PYG{p}{,} \PYG{n}{std}\PYG{o}{=}\PYG{n}{std}\PYG{p}{)}\PYG{p}{,}
+        \PYG{p}{]}
+    \PYG{p}{)}
+
+
+\PYG{k}{def}\PYG{+w}{ }\PYG{n+nf}{find\PYGZus{}closest\PYGZus{}aspect\PYGZus{}ratio}\PYG{p}{(}\PYG{n}{aspect\PYGZus{}ratio}\PYG{p}{,} \PYG{n}{target\PYGZus{}ratios}\PYG{p}{,} \PYG{n}{width}\PYG{p}{,} \PYG{n}{height}\PYG{p}{,} \PYG{n}{image\PYGZus{}size}\PYG{p}{)}\PYG{p}{:}
+    \PYG{n}{best\PYGZus{}ratio\PYGZus{}diff} \PYG{o}{=} \PYG{n+nb}{float}\PYG{p}{(}\PYG{l+s+s2}{\PYGZdq{}}\PYG{l+s+s2}{inf}\PYG{l+s+s2}{\PYGZdq{}}\PYG{p}{)}
+    \PYG{n}{best\PYGZus{}ratio} \PYG{o}{=} \PYG{p}{(}\PYG{l+m+mi}{1}\PYG{p}{,} \PYG{l+m+mi}{1}\PYG{p}{)}
+    \PYG{n}{area} \PYG{o}{=} \PYG{n}{width} \PYG{o}{*} \PYG{n}{height}
+    \PYG{k}{for} \PYG{n}{ratio} \PYG{o+ow}{in} \PYG{n}{target\PYGZus{}ratios}\PYG{p}{:}
+        \PYG{n}{target\PYGZus{}aspect\PYGZus{}ratio} \PYG{o}{=} \PYG{n}{ratio}\PYG{p}{[}\PYG{l+m+mi}{0}\PYG{p}{]} \PYG{o}{/} \PYG{n}{ratio}\PYG{p}{[}\PYG{l+m+mi}{1}\PYG{p}{]}
+        \PYG{n}{ratio\PYGZus{}diff} \PYG{o}{=} \PYG{n+nb}{abs}\PYG{p}{(}\PYG{n}{aspect\PYGZus{}ratio} \PYG{o}{\PYGZhy{}} \PYG{n}{target\PYGZus{}aspect\PYGZus{}ratio}\PYG{p}{)}
+        \PYG{k}{if} \PYG{n}{ratio\PYGZus{}diff} \PYG{o}{\PYGZlt{}} \PYG{n}{best\PYGZus{}ratio\PYGZus{}diff}\PYG{p}{:}
+            \PYG{n}{best\PYGZus{}ratio\PYGZus{}diff} \PYG{o}{=} \PYG{n}{ratio\PYGZus{}diff}
+            \PYG{n}{best\PYGZus{}ratio} \PYG{o}{=} \PYG{n}{ratio}
+        \PYG{k}{elif} \PYG{n}{ratio\PYGZus{}diff} \PYG{o}{==} \PYG{n}{best\PYGZus{}ratio\PYGZus{}diff}\PYG{p}{:}
+            \PYG{k}{if} \PYG{n}{area} \PYG{o}{\PYGZgt{}} \PYG{l+m+mf}{0.5} \PYG{o}{*} \PYG{n}{image\PYGZus{}size} \PYG{o}{*} \PYG{n}{image\PYGZus{}size} \PYG{o}{*} \PYG{n}{ratio}\PYG{p}{[}\PYG{l+m+mi}{0}\PYG{p}{]} \PYG{o}{*} \PYG{n}{ratio}\PYG{p}{[}\PYG{l+m+mi}{1}\PYG{p}{]}\PYG{p}{:}
+                \PYG{n}{best\PYGZus{}ratio} \PYG{o}{=} \PYG{n}{ratio}
+    \PYG{k}{return} \PYG{n}{best\PYGZus{}ratio}
+
+
+\PYG{k}{def}\PYG{+w}{ }\PYG{n+nf}{dynamic\PYGZus{}preprocess}\PYG{p}{(}\PYG{n}{image}\PYG{p}{,} \PYG{n}{min\PYGZus{}num}\PYG{o}{=}\PYG{l+m+mi}{1}\PYG{p}{,} \PYG{n}{max\PYGZus{}num}\PYG{o}{=}\PYG{l+m+mi}{12}\PYG{p}{,} \PYG{n}{image\PYGZus{}size}\PYG{o}{=}\PYG{l+m+mi}{448}\PYG{p}{,} \PYG{n}{use\PYGZus{}thumbnail}\PYG{o}{=}\PYG{k+kc}{False}\PYG{p}{)}\PYG{p}{:}
+    \PYG{n}{orig\PYGZus{}width}\PYG{p}{,} \PYG{n}{orig\PYGZus{}height} \PYG{o}{=} \PYG{n}{image}\PYG{o}{.}\PYG{n}{size}
+    \PYG{n}{aspect\PYGZus{}ratio} \PYG{o}{=} \PYG{n}{orig\PYGZus{}width} \PYG{o}{/} \PYG{n}{orig\PYGZus{}height}
+
+    \PYG{n}{target\PYGZus{}ratios} \PYG{o}{=} \PYG{n+nb}{set}\PYG{p}{(}
+        \PYG{p}{(}\PYG{n}{i}\PYG{p}{,} \PYG{n}{j}\PYG{p}{)}
+        \PYG{k}{for} \PYG{n}{n} \PYG{o+ow}{in} \PYG{n+nb}{range}\PYG{p}{(}\PYG{n}{min\PYGZus{}num}\PYG{p}{,} \PYG{n}{max\PYGZus{}num} \PYG{o}{+} \PYG{l+m+mi}{1}\PYG{p}{)}
+        \PYG{k}{for} \PYG{n}{i} \PYG{o+ow}{in} \PYG{n+nb}{range}\PYG{p}{(}\PYG{l+m+mi}{1}\PYG{p}{,} \PYG{n}{n} \PYG{o}{+} \PYG{l+m+mi}{1}\PYG{p}{)}
+        \PYG{k}{for} \PYG{n}{j} \PYG{o+ow}{in} \PYG{n+nb}{range}\PYG{p}{(}\PYG{l+m+mi}{1}\PYG{p}{,} \PYG{n}{n} \PYG{o}{+} \PYG{l+m+mi}{1}\PYG{p}{)}
+        \PYG{k}{if} \PYG{n}{i} \PYG{o}{*} \PYG{n}{j} \PYG{o}{\PYGZlt{}}\PYG{o}{=} \PYG{n}{max\PYGZus{}num} \PYG{o+ow}{and} \PYG{n}{i} \PYG{o}{*} \PYG{n}{j} \PYG{o}{\PYGZgt{}}\PYG{o}{=} \PYG{n}{min\PYGZus{}num}
+    \PYG{p}{)}
+    \PYG{n}{target\PYGZus{}ratios} \PYG{o}{=} \PYG{n+nb}{sorted}\PYG{p}{(}\PYG{n}{target\PYGZus{}ratios}\PYG{p}{,} \PYG{n}{key}\PYG{o}{=}\PYG{k}{lambda} \PYG{n}{x}\PYG{p}{:} \PYG{n}{x}\PYG{p}{[}\PYG{l+m+mi}{0}\PYG{p}{]} \PYG{o}{*} \PYG{n}{x}\PYG{p}{[}\PYG{l+m+mi}{1}\PYG{p}{]}\PYG{p}{)}
+
+    \PYG{n}{target\PYGZus{}aspect\PYGZus{}ratio} \PYG{o}{=} \PYG{n}{find\PYGZus{}closest\PYGZus{}aspect\PYGZus{}ratio}\PYG{p}{(}
+        \PYG{n}{aspect\PYGZus{}ratio}\PYG{p}{,} \PYG{n}{target\PYGZus{}ratios}\PYG{p}{,} \PYG{n}{orig\PYGZus{}width}\PYG{p}{,} \PYG{n}{orig\PYGZus{}height}\PYG{p}{,} \PYG{n}{image\PYGZus{}size}
+    \PYG{p}{)}
+
+    \PYG{n}{target\PYGZus{}width} \PYG{o}{=} \PYG{n}{image\PYGZus{}size} \PYG{o}{*} \PYG{n}{target\PYGZus{}aspect\PYGZus{}ratio}\PYG{p}{[}\PYG{l+m+mi}{0}\PYG{p}{]}
+    \PYG{n}{target\PYGZus{}height} \PYG{o}{=} \PYG{n}{image\PYGZus{}size} \PYG{o}{*} \PYG{n}{target\PYGZus{}aspect\PYGZus{}ratio}\PYG{p}{[}\PYG{l+m+mi}{1}\PYG{p}{]}
+    \PYG{n}{blocks} \PYG{o}{=} \PYG{n}{target\PYGZus{}aspect\PYGZus{}ratio}\PYG{p}{[}\PYG{l+m+mi}{0}\PYG{p}{]} \PYG{o}{*} \PYG{n}{target\PYGZus{}aspect\PYGZus{}ratio}\PYG{p}{[}\PYG{l+m+mi}{1}\PYG{p}{]}
+
+    \PYG{n}{resized\PYGZus{}img} \PYG{o}{=} \PYG{n}{image}\PYG{o}{.}\PYG{n}{resize}\PYG{p}{(}\PYG{p}{(}\PYG{n}{target\PYGZus{}width}\PYG{p}{,} \PYG{n}{target\PYGZus{}height}\PYG{p}{)}\PYG{p}{)}
+    \PYG{n}{processed\PYGZus{}images} \PYG{o}{=} \PYG{p}{[}\PYG{p}{]}
+    \PYG{k}{for} \PYG{n}{i} \PYG{o+ow}{in} \PYG{n+nb}{range}\PYG{p}{(}\PYG{n}{blocks}\PYG{p}{)}\PYG{p}{:}
+        \PYG{n}{box} \PYG{o}{=} \PYG{p}{(}
+            \PYG{p}{(}\PYG{n}{i} \PYG{o}{\PYGZpc{}} \PYG{p}{(}\PYG{n}{target\PYGZus{}width} \PYG{o}{/}\PYG{o}{/} \PYG{n}{image\PYGZus{}size}\PYG{p}{)}\PYG{p}{)} \PYG{o}{*} \PYG{n}{image\PYGZus{}size}\PYG{p}{,}
+            \PYG{p}{(}\PYG{n}{i} \PYG{o}{/}\PYG{o}{/} \PYG{p}{(}\PYG{n}{target\PYGZus{}width} \PYG{o}{/}\PYG{o}{/} \PYG{n}{image\PYGZus{}size}\PYG{p}{)}\PYG{p}{)} \PYG{o}{*} \PYG{n}{image\PYGZus{}size}\PYG{p}{,}
+            \PYG{p}{(}\PYG{p}{(}\PYG{n}{i} \PYG{o}{\PYGZpc{}} \PYG{p}{(}\PYG{n}{target\PYGZus{}width} \PYG{o}{/}\PYG{o}{/} \PYG{n}{image\PYGZus{}size}\PYG{p}{)}\PYG{p}{)} \PYG{o}{+} \PYG{l+m+mi}{1}\PYG{p}{)} \PYG{o}{*} \PYG{n}{image\PYGZus{}size}\PYG{p}{,}
+            \PYG{p}{(}\PYG{p}{(}\PYG{n}{i} \PYG{o}{/}\PYG{o}{/} \PYG{p}{(}\PYG{n}{target\PYGZus{}width} \PYG{o}{/}\PYG{o}{/} \PYG{n}{image\PYGZus{}size}\PYG{p}{)}\PYG{p}{)} \PYG{o}{+} \PYG{l+m+mi}{1}\PYG{p}{)} \PYG{o}{*} \PYG{n}{image\PYGZus{}size}\PYG{p}{,}
+        \PYG{p}{)}
+        \PYG{n}{split\PYGZus{}img} \PYG{o}{=} \PYG{n}{resized\PYGZus{}img}\PYG{o}{.}\PYG{n}{crop}\PYG{p}{(}\PYG{n}{box}\PYG{p}{)}
+        \PYG{n}{processed\PYGZus{}images}\PYG{o}{.}\PYG{n}{append}\PYG{p}{(}\PYG{n}{split\PYGZus{}img}\PYG{p}{)}
+
+    \PYG{k}{assert} \PYG{n+nb}{len}\PYG{p}{(}\PYG{n}{processed\PYGZus{}images}\PYG{p}{)} \PYG{o}{==} \PYG{n}{blocks}
+
+    \PYG{k}{if} \PYG{n}{use\PYGZus{}thumbnail} \PYG{o+ow}{and} \PYG{n+nb}{len}\PYG{p}{(}\PYG{n}{processed\PYGZus{}images}\PYG{p}{)} \PYG{o}{!=} \PYG{l+m+mi}{1}\PYG{p}{:}
+        \PYG{n}{thumbnail\PYGZus{}img} \PYG{o}{=} \PYG{n}{image}\PYG{o}{.}\PYG{n}{resize}\PYG{p}{(}\PYG{p}{(}\PYG{n}{image\PYGZus{}size}\PYG{p}{,} \PYG{n}{image\PYGZus{}size}\PYG{p}{)}\PYG{p}{)}
+        \PYG{n}{processed\PYGZus{}images}\PYG{o}{.}\PYG{n}{append}\PYG{p}{(}\PYG{n}{thumbnail\PYGZus{}img}\PYG{p}{)}
+
+    \PYG{k}{return} \PYG{n}{processed\PYGZus{}images}
+
+
+\PYG{k}{def}\PYG{+w}{ }\PYG{n+nf}{load\PYGZus{}image}\PYG{p}{(}\PYG{n}{image\PYGZus{}file}\PYG{p}{:} \PYG{n+nb}{str}\PYG{p}{,} \PYG{n}{input\PYGZus{}size}\PYG{o}{=}\PYG{l+m+mi}{448}\PYG{p}{,} \PYG{n}{max\PYGZus{}num}\PYG{o}{=}\PYG{l+m+mi}{12}\PYG{p}{)}\PYG{p}{:}
+    \PYG{n}{image} \PYG{o}{=} \PYG{n}{Image}\PYG{o}{.}\PYG{n}{open}\PYG{p}{(}\PYG{n}{image\PYGZus{}file}\PYG{p}{)}\PYG{o}{.}\PYG{n}{convert}\PYG{p}{(}\PYG{l+s+s2}{\PYGZdq{}}\PYG{l+s+s2}{RGB}\PYG{l+s+s2}{\PYGZdq{}}\PYG{p}{)}
+    \PYG{n}{transform} \PYG{o}{=} \PYG{n}{build\PYGZus{}transform}\PYG{p}{(}\PYG{n}{input\PYGZus{}size}\PYG{o}{=}\PYG{n}{input\PYGZus{}size}\PYG{p}{)}
+    \PYG{n}{images} \PYG{o}{=} \PYG{n}{dynamic\PYGZus{}preprocess}\PYG{p}{(}
+        \PYG{n}{image}\PYG{p}{,} \PYG{n}{image\PYGZus{}size}\PYG{o}{=}\PYG{n}{input\PYGZus{}size}\PYG{p}{,} \PYG{n}{use\PYGZus{}thumbnail}\PYG{o}{=}\PYG{k+kc}{True}\PYG{p}{,} \PYG{n}{max\PYGZus{}num}\PYG{o}{=}\PYG{n}{max\PYGZus{}num}
+    \PYG{p}{)}
+    \PYG{n}{pixel\PYGZus{}values} \PYG{o}{=} \PYG{p}{[}\PYG{n}{transform}\PYG{p}{(}\PYG{n}{img}\PYG{p}{)} \PYG{k}{for} \PYG{n}{img} \PYG{o+ow}{in} \PYG{n}{images}\PYG{p}{]}
+    \PYG{n}{pixel\PYGZus{}values} \PYG{o}{=} \PYG{n}{torch}\PYG{o}{.}\PYG{n}{stack}\PYG{p}{(}\PYG{n}{pixel\PYGZus{}values}\PYG{p}{)}
+    \PYG{k}{return} \PYG{n}{pixel\PYGZus{}values}
+
+
+\PYG{k}{def}\PYG{+w}{ }\PYG{n+nf}{main}\PYG{p}{(}\PYG{p}{)}\PYG{p}{:}
+    \PYG{c+c1}{\PYGZsh{} Put any local JPG/PNG here}
+    \PYG{n}{img\PYGZus{}path} \PYG{o}{=} \PYG{n}{Path}\PYG{p}{(}\PYG{l+s+s2}{\PYGZdq{}}\PYG{l+s+s2}{data/test.jpg}\PYG{l+s+s2}{\PYGZdq{}}\PYG{p}{)}
+    \PYG{k}{assert} \PYG{n}{img\PYGZus{}path}\PYG{o}{.}\PYG{n}{exists}\PYG{p}{(}\PYG{p}{)}\PYG{p}{,} \PYG{l+s+sa}{f}\PYG{l+s+s2}{\PYGZdq{}}\PYG{l+s+s2}{Place a test image at }\PYG{l+s+si}{\PYGZob{}}\PYG{n}{img\PYGZus{}path}\PYG{l+s+si}{\PYGZcb{}}\PYG{l+s+s2}{\PYGZdq{}}
+
+    \PYG{n}{model\PYGZus{}id} \PYG{o}{=} \PYG{l+s+s2}{\PYGZdq{}}\PYG{l+s+s2}{OpenGVLab/InternVL3\PYGZus{}5\PYGZhy{}2B\PYGZhy{}Instruct}\PYG{l+s+s2}{\PYGZdq{}}
+
+    \PYG{n+nb}{print}\PYG{p}{(}\PYG{l+s+s2}{\PYGZdq{}}\PYG{l+s+s2}{Loading model on GPUs...}\PYG{l+s+s2}{\PYGZdq{}}\PYG{p}{)}
+    \PYG{n}{model} \PYG{o}{=} \PYG{n}{AutoModel}\PYG{o}{.}\PYG{n}{from\PYGZus{}pretrained}\PYG{p}{(}
+        \PYG{n}{model\PYGZus{}id}\PYG{p}{,}
+        \PYG{n}{torch\PYGZus{}dtype}\PYG{o}{=}\PYG{n}{torch}\PYG{o}{.}\PYG{n}{bfloat16}\PYG{p}{,}
+        \PYG{n}{use\PYGZus{}flash\PYGZus{}attn}\PYG{o}{=}\PYG{k+kc}{False}\PYG{p}{,}
+        \PYG{n}{trust\PYGZus{}remote\PYGZus{}code}\PYG{o}{=}\PYG{k+kc}{True}\PYG{p}{,}
+        \PYG{n}{device\PYGZus{}map}\PYG{o}{=}\PYG{l+s+s2}{\PYGZdq{}}\PYG{l+s+s2}{auto}\PYG{l+s+s2}{\PYGZdq{}}\PYG{p}{,}
+    \PYG{p}{)}\PYG{o}{.}\PYG{n}{eval}\PYG{p}{(}\PYG{p}{)}
+
+    \PYG{n}{tokenizer} \PYG{o}{=} \PYG{n}{AutoTokenizer}\PYG{o}{.}\PYG{n}{from\PYGZus{}pretrained}\PYG{p}{(}
+        \PYG{n}{model\PYGZus{}id}\PYG{p}{,}
+        \PYG{n}{trust\PYGZus{}remote\PYGZus{}code}\PYG{o}{=}\PYG{k+kc}{True}\PYG{p}{,}
+        \PYG{n}{use\PYGZus{}fast}\PYG{o}{=}\PYG{k+kc}{False}\PYG{p}{,}
+    \PYG{p}{)}
+
+    \PYG{n}{pixel\PYGZus{}values} \PYG{o}{=} \PYG{n}{load\PYGZus{}image}\PYG{p}{(}\PYG{n+nb}{str}\PYG{p}{(}\PYG{n}{img\PYGZus{}path}\PYG{p}{)}\PYG{p}{,} \PYG{n}{max\PYGZus{}num}\PYG{o}{=}\PYG{l+m+mi}{12}\PYG{p}{)}\PYG{o}{.}\PYG{n}{to}\PYG{p}{(}\PYG{n}{torch}\PYG{o}{.}\PYG{n}{bfloat16}\PYG{p}{)}\PYG{o}{.}\PYG{n}{cuda}\PYG{p}{(}\PYG{p}{)}
+
+    \PYG{n}{generation\PYGZus{}config} \PYG{o}{=} \PYG{n+nb}{dict}\PYG{p}{(}\PYG{n}{max\PYGZus{}new\PYGZus{}tokens}\PYG{o}{=}\PYG{l+m+mi}{256}\PYG{p}{,} \PYG{n}{do\PYGZus{}sample}\PYG{o}{=}\PYG{k+kc}{False}\PYG{p}{)}
+
+    \PYG{c+c1}{\PYGZsh{} Neutral prompt (baseline)}
+    \PYG{n}{question\PYGZus{}neutral} \PYG{o}{=} \PYG{l+s+s2}{\PYGZdq{}}\PYG{l+s+s2}{\PYGZlt{}image\PYGZgt{}}\PYG{l+s+se}{\PYGZbs{}n}\PYG{l+s+s2}{Provide a factual caption for this image.}\PYG{l+s+s2}{\PYGZdq{}}
+    \PYG{n}{response\PYGZus{}neutral} \PYG{o}{=} \PYG{n}{model}\PYG{o}{.}\PYG{n}{chat}\PYG{p}{(}
+        \PYG{n}{tokenizer}\PYG{p}{,} \PYG{n}{pixel\PYGZus{}values}\PYG{p}{,} \PYG{n}{question\PYGZus{}neutral}\PYG{p}{,} \PYG{n}{generation\PYGZus{}config}
+    \PYG{p}{)}
+    \PYG{n+nb}{print}\PYG{p}{(}\PYG{l+s+s2}{\PYGZdq{}}\PYG{l+s+se}{\PYGZbs{}n}\PYG{l+s+s2}{[Neutral caption]}\PYG{l+s+s2}{\PYGZdq{}}\PYG{p}{)}
+    \PYG{n+nb}{print}\PYG{p}{(}\PYG{n}{response\PYGZus{}neutral}\PYG{p}{)}
+
+    \PYG{c+c1}{\PYGZsh{} Detailed prompt (what you care about)}
+    \PYG{n}{question\PYGZus{}detailed} \PYG{o}{=} \PYG{p}{(}
+        \PYG{l+s+s2}{\PYGZdq{}}\PYG{l+s+s2}{\PYGZlt{}image\PYGZgt{}}\PYG{l+s+se}{\PYGZbs{}n}\PYG{l+s+s2}{Provide a detailed, comprehensive caption describing all key }\PYG{l+s+s2}{\PYGZdq{}}
+        \PYG{l+s+s2}{\PYGZdq{}}\PYG{l+s+s2}{objects, attributes, actions, and context.}\PYG{l+s+s2}{\PYGZdq{}}
+    \PYG{p}{)}
+    \PYG{n}{response\PYGZus{}detailed} \PYG{o}{=} \PYG{n}{model}\PYG{o}{.}\PYG{n}{chat}\PYG{p}{(}
+        \PYG{n}{tokenizer}\PYG{p}{,} \PYG{n}{pixel\PYGZus{}values}\PYG{p}{,} \PYG{n}{question\PYGZus{}detailed}\PYG{p}{,} \PYG{n}{generation\PYGZus{}config}
+    \PYG{p}{)}
+    \PYG{n+nb}{print}\PYG{p}{(}\PYG{l+s+s2}{\PYGZdq{}}\PYG{l+s+se}{\PYGZbs{}n}\PYG{l+s+s2}{[Detailed caption]}\PYG{l+s+s2}{\PYGZdq{}}\PYG{p}{)}
+    \PYG{n+nb}{print}\PYG{p}{(}\PYG{n}{response\PYGZus{}detailed}\PYG{p}{)}
+
+
+\PYG{k}{if} \PYG{n+nv+vm}{\PYGZus{}\PYGZus{}name\PYGZus{}\PYGZus{}} \PYG{o}{==} \PYG{l+s+s2}{\PYGZdq{}}\PYG{l+s+s2}{\PYGZus{}\PYGZus{}main\PYGZus{}\PYGZus{}}\PYG{l+s+s2}{\PYGZdq{}}\PYG{p}{:}
+    \PYG{n}{main}\PYG{p}{(}\PYG{p}{)}
+
+\end{MintedVerbatim}

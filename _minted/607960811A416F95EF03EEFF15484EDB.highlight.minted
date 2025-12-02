@@ -1,0 +1,29 @@
+\begin{MintedVerbatim}[commandchars=\\\{\}]
+\PYG{c+c1}{\PYGZsh{} src/lora\PYGZus{}config.py}
+\PYG{k+kn}{from}\PYG{+w}{ }\PYG{n+nn}{peft}\PYG{+w}{ }\PYG{k+kn}{import} \PYG{n}{LoraConfig}\PYG{p}{,} \PYG{n}{TaskType}
+
+\PYG{n}{TARGET\PYGZus{}MODULES} \PYG{o}{=} \PYG{p}{[}
+    \PYG{l+s+s2}{\PYGZdq{}}\PYG{l+s+s2}{q\PYGZus{}proj}\PYG{l+s+s2}{\PYGZdq{}}\PYG{p}{,}
+    \PYG{l+s+s2}{\PYGZdq{}}\PYG{l+s+s2}{k\PYGZus{}proj}\PYG{l+s+s2}{\PYGZdq{}}\PYG{p}{,}
+    \PYG{l+s+s2}{\PYGZdq{}}\PYG{l+s+s2}{v\PYGZus{}proj}\PYG{l+s+s2}{\PYGZdq{}}\PYG{p}{,}
+    \PYG{l+s+s2}{\PYGZdq{}}\PYG{l+s+s2}{o\PYGZus{}proj}\PYG{l+s+s2}{\PYGZdq{}}\PYG{p}{,}
+    \PYG{l+s+s2}{\PYGZdq{}}\PYG{l+s+s2}{gate\PYGZus{}proj}\PYG{l+s+s2}{\PYGZdq{}}\PYG{p}{,}
+    \PYG{l+s+s2}{\PYGZdq{}}\PYG{l+s+s2}{up\PYGZus{}proj}\PYG{l+s+s2}{\PYGZdq{}}\PYG{p}{,}
+    \PYG{l+s+s2}{\PYGZdq{}}\PYG{l+s+s2}{down\PYGZus{}proj}\PYG{l+s+s2}{\PYGZdq{}}\PYG{p}{,}
+\PYG{p}{]}
+
+\PYG{k}{def}\PYG{+w}{ }\PYG{n+nf}{make\PYGZus{}default\PYGZus{}lora\PYGZus{}config}\PYG{p}{(}
+    \PYG{n}{r}\PYG{p}{:} \PYG{n+nb}{int} \PYG{o}{=} \PYG{l+m+mi}{32}\PYG{p}{,}
+    \PYG{n}{alpha}\PYG{p}{:} \PYG{n+nb}{int} \PYG{o}{=} \PYG{l+m+mi}{64}\PYG{p}{,}
+    \PYG{n}{dropout}\PYG{p}{:} \PYG{n+nb}{float} \PYG{o}{=} \PYG{l+m+mf}{0.05}\PYG{p}{,}
+\PYG{p}{)} \PYG{o}{\PYGZhy{}}\PYG{o}{\PYGZgt{}} \PYG{n}{LoraConfig}\PYG{p}{:}
+    \PYG{k}{return} \PYG{n}{LoraConfig}\PYG{p}{(}
+        \PYG{n}{r}\PYG{o}{=}\PYG{n}{r}\PYG{p}{,}
+        \PYG{n}{lora\PYGZus{}alpha}\PYG{o}{=}\PYG{n}{alpha}\PYG{p}{,}
+        \PYG{n}{lora\PYGZus{}dropout}\PYG{o}{=}\PYG{n}{dropout}\PYG{p}{,}
+        \PYG{n}{bias}\PYG{o}{=}\PYG{l+s+s2}{\PYGZdq{}}\PYG{l+s+s2}{none}\PYG{l+s+s2}{\PYGZdq{}}\PYG{p}{,}
+        \PYG{n}{task\PYGZus{}type}\PYG{o}{=}\PYG{n}{TaskType}\PYG{o}{.}\PYG{n}{CAUSAL\PYGZus{}LM}\PYG{p}{,}
+        \PYG{n}{target\PYGZus{}modules}\PYG{o}{=}\PYG{n}{TARGET\PYGZus{}MODULES}\PYG{p}{,}
+    \PYG{p}{)}
+
+\end{MintedVerbatim}

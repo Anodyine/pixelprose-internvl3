@@ -1,0 +1,145 @@
+\begin{MintedVerbatim}[commandchars=\\\{\}]
+\PYG{c+c1}{\PYGZsh{} scripts/build\PYGZus{}pixelprose\PYGZus{}subset.py}
+
+\PYG{k+kn}{import}\PYG{+w}{ }\PYG{n+nn}{json}
+\PYG{k+kn}{from}\PYG{+w}{ }\PYG{n+nn}{io}\PYG{+w}{ }\PYG{k+kn}{import} \PYG{n}{BytesIO}
+\PYG{k+kn}{from}\PYG{+w}{ }\PYG{n+nn}{pathlib}\PYG{+w}{ }\PYG{k+kn}{import} \PYG{n}{Path}
+\PYG{k+kn}{from}\PYG{+w}{ }\PYG{n+nn}{typing}\PYG{+w}{ }\PYG{k+kn}{import} \PYG{n}{Optional}
+
+\PYG{k+kn}{import}\PYG{+w}{ }\PYG{n+nn}{requests}
+\PYG{k+kn}{from}\PYG{+w}{ }\PYG{n+nn}{datasets}\PYG{+w}{ }\PYG{k+kn}{import} \PYG{n}{load\PYGZus{}dataset}
+\PYG{k+kn}{from}\PYG{+w}{ }\PYG{n+nn}{PIL}\PYG{+w}{ }\PYG{k+kn}{import} \PYG{n}{Image}
+\PYG{k+kn}{from}\PYG{+w}{ }\PYG{n+nn}{tqdm}\PYG{+w}{ }\PYG{k+kn}{import} \PYG{n}{tqdm}
+
+
+\PYG{k}{def}\PYG{+w}{ }\PYG{n+nf}{download\PYGZus{}image}\PYG{p}{(}\PYG{n}{url}\PYG{p}{:} \PYG{n+nb}{str}\PYG{p}{,} \PYG{n}{out\PYGZus{}path}\PYG{p}{:} \PYG{n}{Path}\PYG{p}{,} \PYG{n}{timeout}\PYG{p}{:} \PYG{n+nb}{float} \PYG{o}{=} \PYG{l+m+mf}{10.0}\PYG{p}{)} \PYG{o}{\PYGZhy{}}\PYG{o}{\PYGZgt{}} \PYG{n+nb}{bool}\PYG{p}{:}
+\PYG{+w}{    }\PYG{l+s+sd}{\PYGZdq{}\PYGZdq{}\PYGZdq{}Download image from URL and save as JPEG. Returns True on success, False otherwise.\PYGZdq{}\PYGZdq{}\PYGZdq{}}
+    \PYG{k}{try}\PYG{p}{:}
+        \PYG{n}{resp} \PYG{o}{=} \PYG{n}{requests}\PYG{o}{.}\PYG{n}{get}\PYG{p}{(}\PYG{n}{url}\PYG{p}{,} \PYG{n}{timeout}\PYG{o}{=}\PYG{n}{timeout}\PYG{p}{)}
+        \PYG{n}{resp}\PYG{o}{.}\PYG{n}{raise\PYGZus{}for\PYGZus{}status}\PYG{p}{(}\PYG{p}{)}
+        \PYG{n}{img} \PYG{o}{=} \PYG{n}{Image}\PYG{o}{.}\PYG{n}{open}\PYG{p}{(}\PYG{n}{BytesIO}\PYG{p}{(}\PYG{n}{resp}\PYG{o}{.}\PYG{n}{content}\PYG{p}{)}\PYG{p}{)}\PYG{o}{.}\PYG{n}{convert}\PYG{p}{(}\PYG{l+s+s2}{\PYGZdq{}}\PYG{l+s+s2}{RGB}\PYG{l+s+s2}{\PYGZdq{}}\PYG{p}{)}
+        \PYG{n}{out\PYGZus{}path}\PYG{o}{.}\PYG{n}{parent}\PYG{o}{.}\PYG{n}{mkdir}\PYG{p}{(}\PYG{n}{parents}\PYG{o}{=}\PYG{k+kc}{True}\PYG{p}{,} \PYG{n}{exist\PYGZus{}ok}\PYG{o}{=}\PYG{k+kc}{True}\PYG{p}{)}
+        \PYG{n}{img}\PYG{o}{.}\PYG{n}{save}\PYG{p}{(}\PYG{n}{out\PYGZus{}path}\PYG{p}{,} \PYG{n+nb}{format}\PYG{o}{=}\PYG{l+s+s2}{\PYGZdq{}}\PYG{l+s+s2}{JPEG}\PYG{l+s+s2}{\PYGZdq{}}\PYG{p}{,} \PYG{n}{quality}\PYG{o}{=}\PYG{l+m+mi}{95}\PYG{p}{)}
+        \PYG{k}{return} \PYG{k+kc}{True}
+    \PYG{k}{except} \PYG{n+ne}{Exception} \PYG{k}{as} \PYG{n}{e}\PYG{p}{:}
+        \PYG{n+nb}{print}\PYG{p}{(}\PYG{l+s+sa}{f}\PYG{l+s+s2}{\PYGZdq{}}\PYG{l+s+s2}{[WARN] Failed to download }\PYG{l+s+si}{\PYGZob{}}\PYG{n}{url}\PYG{l+s+si}{\PYGZcb{}}\PYG{l+s+s2}{ \PYGZhy{}\PYGZgt{} }\PYG{l+s+si}{\PYGZob{}}\PYG{n}{out\PYGZus{}path}\PYG{l+s+si}{\PYGZcb{}}\PYG{l+s+s2}{: }\PYG{l+s+si}{\PYGZob{}}\PYG{n}{e}\PYG{l+s+si}{\PYGZcb{}}\PYG{l+s+s2}{\PYGZdq{}}\PYG{p}{)}
+        \PYG{k}{return} \PYG{k+kc}{False}
+
+
+\PYG{k}{def}\PYG{+w}{ }\PYG{n+nf}{main}\PYG{p}{(}\PYG{n}{dataset\PYGZus{}index}\PYG{p}{:} \PYG{n+nb}{int}\PYG{p}{,} \PYG{n}{num\PYGZus{}samples}\PYG{p}{:} \PYG{n+nb}{int}\PYG{p}{)}\PYG{p}{:}
+\PYG{+w}{    }\PYG{l+s+sd}{\PYGZdq{}\PYGZdq{}\PYGZdq{}}
+\PYG{l+s+sd}{    Build a PixelProse subset with num\PYGZus{}samples successfully downloaded images,}
+\PYG{l+s+sd}{    if possible.}
+
+\PYG{l+s+sd}{    Args:}
+\PYG{l+s+sd}{        dataset\PYGZus{}index: integer index used to choose output directory and shuffle seed.}
+\PYG{l+s+sd}{        num\PYGZus{}samples: number of successful image downloads to collect.}
+\PYG{l+s+sd}{    \PYGZdq{}\PYGZdq{}\PYGZdq{}}
+    \PYG{c+c1}{\PYGZsh{} Output dir: data/pixelprose\PYGZus{}subset\PYGZob{}index\PYGZcb{}}
+    \PYG{n}{out\PYGZus{}dir} \PYG{o}{=} \PYG{l+s+sa}{f}\PYG{l+s+s2}{\PYGZdq{}}\PYG{l+s+s2}{data/pixelprose\PYGZus{}subset}\PYG{l+s+si}{\PYGZob{}}\PYG{n}{dataset\PYGZus{}index}\PYG{l+s+si}{\PYGZcb{}}\PYG{l+s+s2}{\PYGZdq{}}
+    \PYG{n}{seed} \PYG{o}{=} \PYG{l+m+mi}{42} \PYG{o}{+} \PYG{n}{dataset\PYGZus{}index}
+
+    \PYG{n}{out\PYGZus{}dir\PYGZus{}path} \PYG{o}{=} \PYG{n}{Path}\PYG{p}{(}\PYG{n}{out\PYGZus{}dir}\PYG{p}{)}
+    \PYG{n}{img\PYGZus{}dir} \PYG{o}{=} \PYG{n}{out\PYGZus{}dir\PYGZus{}path} \PYG{o}{/} \PYG{l+s+s2}{\PYGZdq{}}\PYG{l+s+s2}{images}\PYG{l+s+s2}{\PYGZdq{}}
+    \PYG{n}{out\PYGZus{}dir\PYGZus{}path}\PYG{o}{.}\PYG{n}{mkdir}\PYG{p}{(}\PYG{n}{parents}\PYG{o}{=}\PYG{k+kc}{True}\PYG{p}{,} \PYG{n}{exist\PYGZus{}ok}\PYG{o}{=}\PYG{k+kc}{True}\PYG{p}{)}
+    \PYG{n}{img\PYGZus{}dir}\PYG{o}{.}\PYG{n}{mkdir}\PYG{p}{(}\PYG{n}{parents}\PYG{o}{=}\PYG{k+kc}{True}\PYG{p}{,} \PYG{n}{exist\PYGZus{}ok}\PYG{o}{=}\PYG{k+kc}{True}\PYG{p}{)}
+
+    \PYG{n+nb}{print}\PYG{p}{(}\PYG{l+s+sa}{f}\PYG{l+s+s2}{\PYGZdq{}}\PYG{l+s+s2}{=== Building PixelProse subset }\PYG{l+s+si}{\PYGZob{}}\PYG{n}{dataset\PYGZus{}index}\PYG{l+s+si}{\PYGZcb{}}\PYG{l+s+s2}{ ===}\PYG{l+s+s2}{\PYGZdq{}}\PYG{p}{)}
+    \PYG{n+nb}{print}\PYG{p}{(}\PYG{l+s+sa}{f}\PYG{l+s+s2}{\PYGZdq{}}\PYG{l+s+s2}{Output dir      : }\PYG{l+s+si}{\PYGZob{}}\PYG{n}{out\PYGZus{}dir\PYGZus{}path}\PYG{l+s+si}{\PYGZcb{}}\PYG{l+s+s2}{\PYGZdq{}}\PYG{p}{)}
+    \PYG{n+nb}{print}\PYG{p}{(}\PYG{l+s+sa}{f}\PYG{l+s+s2}{\PYGZdq{}}\PYG{l+s+s2}{Requested images: }\PYG{l+s+si}{\PYGZob{}}\PYG{n}{num\PYGZus{}samples}\PYG{l+s+si}{\PYGZcb{}}\PYG{l+s+s2}{\PYGZdq{}}\PYG{p}{)}
+    \PYG{n+nb}{print}\PYG{p}{(}\PYG{l+s+sa}{f}\PYG{l+s+s2}{\PYGZdq{}}\PYG{l+s+s2}{Shuffle seed    : }\PYG{l+s+si}{\PYGZob{}}\PYG{n}{seed}\PYG{l+s+si}{\PYGZcb{}}\PYG{l+s+s2}{\PYGZdq{}}\PYG{p}{)}
+
+    \PYG{n+nb}{print}\PYG{p}{(}\PYG{l+s+s2}{\PYGZdq{}}\PYG{l+s+s2}{Loading PixelProse from Hugging Face...}\PYG{l+s+s2}{\PYGZdq{}}\PYG{p}{)}
+    \PYG{n}{ds} \PYG{o}{=} \PYG{n}{load\PYGZus{}dataset}\PYG{p}{(}\PYG{l+s+s2}{\PYGZdq{}}\PYG{l+s+s2}{tomg\PYGZhy{}group\PYGZhy{}umd/pixelprose}\PYG{l+s+s2}{\PYGZdq{}}\PYG{p}{,} \PYG{n}{split}\PYG{o}{=}\PYG{l+s+s2}{\PYGZdq{}}\PYG{l+s+s2}{train}\PYG{l+s+s2}{\PYGZdq{}}\PYG{p}{,} \PYG{n}{streaming}\PYG{o}{=}\PYG{k+kc}{False}\PYG{p}{)}
+
+    \PYG{n+nb}{print}\PYG{p}{(}\PYG{l+s+s2}{\PYGZdq{}}\PYG{l+s+s2}{Columns:}\PYG{l+s+s2}{\PYGZdq{}}\PYG{p}{,} \PYG{n}{ds}\PYG{o}{.}\PYG{n}{column\PYGZus{}names}\PYG{p}{)}
+    \PYG{n}{total\PYGZus{}size} \PYG{o}{=} \PYG{n+nb}{len}\PYG{p}{(}\PYG{n}{ds}\PYG{p}{)}
+    \PYG{n+nb}{print}\PYG{p}{(}\PYG{l+s+sa}{f}\PYG{l+s+s2}{\PYGZdq{}}\PYG{l+s+s2}{Dataset size    : }\PYG{l+s+si}{\PYGZob{}}\PYG{n}{total\PYGZus{}size}\PYG{l+s+si}{\PYGZcb{}}\PYG{l+s+s2}{\PYGZdq{}}\PYG{p}{)}
+
+    \PYG{n+nb}{print}\PYG{p}{(}\PYG{l+s+s2}{\PYGZdq{}}\PYG{l+s+s2}{Shuffling...}\PYG{l+s+s2}{\PYGZdq{}}\PYG{p}{)}
+    \PYG{n}{ds} \PYG{o}{=} \PYG{n}{ds}\PYG{o}{.}\PYG{n}{shuffle}\PYG{p}{(}\PYG{n}{seed}\PYG{o}{=}\PYG{n}{seed}\PYG{p}{)}
+
+    \PYG{n}{meta\PYGZus{}path} \PYG{o}{=} \PYG{n}{out\PYGZus{}dir\PYGZus{}path} \PYG{o}{/} \PYG{l+s+s2}{\PYGZdq{}}\PYG{l+s+s2}{metadata.jsonl}\PYG{l+s+s2}{\PYGZdq{}}
+
+    \PYG{n}{kept} \PYG{o}{=} \PYG{l+m+mi}{0}
+    \PYG{n}{tried} \PYG{o}{=} \PYG{l+m+mi}{0}
+
+    \PYG{c+c1}{\PYGZsh{} Progress bar tracks kept images}
+    \PYG{n}{pbar} \PYG{o}{=} \PYG{n}{tqdm}\PYG{p}{(}\PYG{n}{total}\PYG{o}{=}\PYG{n}{num\PYGZus{}samples}\PYG{p}{,} \PYG{n}{desc}\PYG{o}{=}\PYG{l+s+s2}{\PYGZdq{}}\PYG{l+s+s2}{Collected images}\PYG{l+s+s2}{\PYGZdq{}}\PYG{p}{,} \PYG{n}{unit}\PYG{o}{=}\PYG{l+s+s2}{\PYGZdq{}}\PYG{l+s+s2}{img}\PYG{l+s+s2}{\PYGZdq{}}\PYG{p}{)}
+
+    \PYG{k}{with} \PYG{n}{meta\PYGZus{}path}\PYG{o}{.}\PYG{n}{open}\PYG{p}{(}\PYG{l+s+s2}{\PYGZdq{}}\PYG{l+s+s2}{w}\PYG{l+s+s2}{\PYGZdq{}}\PYG{p}{,} \PYG{n}{encoding}\PYG{o}{=}\PYG{l+s+s2}{\PYGZdq{}}\PYG{l+s+s2}{utf\PYGZhy{}8}\PYG{l+s+s2}{\PYGZdq{}}\PYG{p}{)} \PYG{k}{as} \PYG{n}{f}\PYG{p}{:}
+        \PYG{c+c1}{\PYGZsh{} Iterate over the entire shuffled dataset until we have num\PYGZus{}samples}
+        \PYG{k}{for} \PYG{n}{ex} \PYG{o+ow}{in} \PYG{n}{ds}\PYG{p}{:}
+            \PYG{k}{if} \PYG{n}{kept} \PYG{o}{\PYGZgt{}}\PYG{o}{=} \PYG{n}{num\PYGZus{}samples}\PYG{p}{:}
+                \PYG{k}{break}
+
+            \PYG{n}{tried} \PYG{o}{+}\PYG{o}{=} \PYG{l+m+mi}{1}
+
+            \PYG{n}{url}\PYG{p}{:} \PYG{n}{Optional}\PYG{p}{[}\PYG{n+nb}{str}\PYG{p}{]} \PYG{o}{=} \PYG{n}{ex}\PYG{o}{.}\PYG{n}{get}\PYG{p}{(}\PYG{l+s+s2}{\PYGZdq{}}\PYG{l+s+s2}{url}\PYG{l+s+s2}{\PYGZdq{}}\PYG{p}{)}
+            \PYG{n}{caption}\PYG{p}{:} \PYG{n}{Optional}\PYG{p}{[}\PYG{n+nb}{str}\PYG{p}{]} \PYG{o}{=} \PYG{n}{ex}\PYG{o}{.}\PYG{n}{get}\PYG{p}{(}\PYG{l+s+s2}{\PYGZdq{}}\PYG{l+s+s2}{vlm\PYGZus{}caption}\PYG{l+s+s2}{\PYGZdq{}}\PYG{p}{)} \PYG{o+ow}{or} \PYG{n}{ex}\PYG{o}{.}\PYG{n}{get}\PYG{p}{(}\PYG{l+s+s2}{\PYGZdq{}}\PYG{l+s+s2}{original\PYGZus{}caption}\PYG{l+s+s2}{\PYGZdq{}}\PYG{p}{)}
+
+            \PYG{k}{if} \PYG{o+ow}{not} \PYG{n}{url} \PYG{o+ow}{or} \PYG{o+ow}{not} \PYG{n}{caption}\PYG{p}{:}
+                \PYG{c+c1}{\PYGZsh{} Missing necessary fields; skip}
+                \PYG{k}{continue}
+
+            \PYG{n}{img\PYGZus{}fname} \PYG{o}{=} \PYG{l+s+sa}{f}\PYG{l+s+s2}{\PYGZdq{}}\PYG{l+s+si}{\PYGZob{}}\PYG{n}{kept}\PYG{l+s+si}{:}\PYG{l+s+s2}{06d}\PYG{l+s+si}{\PYGZcb{}}\PYG{l+s+s2}{.jpg}\PYG{l+s+s2}{\PYGZdq{}}  \PYG{c+c1}{\PYGZsh{} IDs local to this subset: 0..num\PYGZus{}samples\PYGZhy{}1}
+            \PYG{n}{img\PYGZus{}path} \PYG{o}{=} \PYG{n}{img\PYGZus{}dir} \PYG{o}{/} \PYG{n}{img\PYGZus{}fname}
+
+            \PYG{n}{ok} \PYG{o}{=} \PYG{n}{download\PYGZus{}image}\PYG{p}{(}\PYG{n}{url}\PYG{p}{,} \PYG{n}{img\PYGZus{}path}\PYG{p}{)}
+            \PYG{k}{if} \PYG{o+ow}{not} \PYG{n}{ok}\PYG{p}{:}
+                \PYG{k}{continue}
+
+            \PYG{n}{record} \PYG{o}{=} \PYG{p}{\PYGZob{}}
+                \PYG{l+s+s2}{\PYGZdq{}}\PYG{l+s+s2}{id}\PYG{l+s+s2}{\PYGZdq{}}\PYG{p}{:} \PYG{n}{kept}\PYG{p}{,}
+                \PYG{l+s+s2}{\PYGZdq{}}\PYG{l+s+s2}{uid}\PYG{l+s+s2}{\PYGZdq{}}\PYG{p}{:} \PYG{n}{ex}\PYG{o}{.}\PYG{n}{get}\PYG{p}{(}\PYG{l+s+s2}{\PYGZdq{}}\PYG{l+s+s2}{uid}\PYG{l+s+s2}{\PYGZdq{}}\PYG{p}{)}\PYG{p}{,}
+                \PYG{l+s+s2}{\PYGZdq{}}\PYG{l+s+s2}{url}\PYG{l+s+s2}{\PYGZdq{}}\PYG{p}{:} \PYG{n}{url}\PYG{p}{,}
+                \PYG{l+s+s2}{\PYGZdq{}}\PYG{l+s+s2}{image\PYGZus{}file}\PYG{l+s+s2}{\PYGZdq{}}\PYG{p}{:} \PYG{n+nb}{str}\PYG{p}{(}\PYG{n}{img\PYGZus{}path}\PYG{o}{.}\PYG{n}{relative\PYGZus{}to}\PYG{p}{(}\PYG{n}{out\PYGZus{}dir\PYGZus{}path}\PYG{p}{)}\PYG{p}{)}\PYG{p}{,}
+                \PYG{l+s+s2}{\PYGZdq{}}\PYG{l+s+s2}{caption}\PYG{l+s+s2}{\PYGZdq{}}\PYG{p}{:} \PYG{n}{caption}\PYG{p}{,}
+                \PYG{l+s+s2}{\PYGZdq{}}\PYG{l+s+s2}{vlm\PYGZus{}model}\PYG{l+s+s2}{\PYGZdq{}}\PYG{p}{:} \PYG{n}{ex}\PYG{o}{.}\PYG{n}{get}\PYG{p}{(}\PYG{l+s+s2}{\PYGZdq{}}\PYG{l+s+s2}{vlm\PYGZus{}model}\PYG{l+s+s2}{\PYGZdq{}}\PYG{p}{)}\PYG{p}{,}
+                \PYG{l+s+s2}{\PYGZdq{}}\PYG{l+s+s2}{aesthetic\PYGZus{}score}\PYG{l+s+s2}{\PYGZdq{}}\PYG{p}{:} \PYG{n}{ex}\PYG{o}{.}\PYG{n}{get}\PYG{p}{(}\PYG{l+s+s2}{\PYGZdq{}}\PYG{l+s+s2}{aesthetic\PYGZus{}score}\PYG{l+s+s2}{\PYGZdq{}}\PYG{p}{)}\PYG{p}{,}
+                \PYG{l+s+s2}{\PYGZdq{}}\PYG{l+s+s2}{watermark\PYGZus{}class\PYGZus{}score}\PYG{l+s+s2}{\PYGZdq{}}\PYG{p}{:} \PYG{n}{ex}\PYG{o}{.}\PYG{n}{get}\PYG{p}{(}\PYG{l+s+s2}{\PYGZdq{}}\PYG{l+s+s2}{watermark\PYGZus{}class\PYGZus{}score}\PYG{l+s+s2}{\PYGZdq{}}\PYG{p}{)}\PYG{p}{,}
+            \PYG{p}{\PYGZcb{}}
+            \PYG{n}{f}\PYG{o}{.}\PYG{n}{write}\PYG{p}{(}\PYG{n}{json}\PYG{o}{.}\PYG{n}{dumps}\PYG{p}{(}\PYG{n}{record}\PYG{p}{,} \PYG{n}{ensure\PYGZus{}ascii}\PYG{o}{=}\PYG{k+kc}{False}\PYG{p}{)} \PYG{o}{+} \PYG{l+s+s2}{\PYGZdq{}}\PYG{l+s+se}{\PYGZbs{}n}\PYG{l+s+s2}{\PYGZdq{}}\PYG{p}{)}
+            \PYG{n}{kept} \PYG{o}{+}\PYG{o}{=} \PYG{l+m+mi}{1}
+            \PYG{n}{pbar}\PYG{o}{.}\PYG{n}{update}\PYG{p}{(}\PYG{l+m+mi}{1}\PYG{p}{)}
+
+    \PYG{n}{pbar}\PYG{o}{.}\PYG{n}{close}\PYG{p}{(}\PYG{p}{)}
+
+    \PYG{n+nb}{print}\PYG{p}{(}\PYG{l+s+sa}{f}\PYG{l+s+s2}{\PYGZdq{}}\PYG{l+s+s2}{Done scanning dataset.}\PYG{l+s+s2}{\PYGZdq{}}\PYG{p}{)}
+    \PYG{n+nb}{print}\PYG{p}{(}\PYG{l+s+sa}{f}\PYG{l+s+s2}{\PYGZdq{}}\PYG{l+s+s2}{Tried examples   : }\PYG{l+s+si}{\PYGZob{}}\PYG{n}{tried}\PYG{l+s+si}{\PYGZcb{}}\PYG{l+s+s2}{\PYGZdq{}}\PYG{p}{)}
+    \PYG{n+nb}{print}\PYG{p}{(}\PYG{l+s+sa}{f}\PYG{l+s+s2}{\PYGZdq{}}\PYG{l+s+s2}{Kept images      : }\PYG{l+s+si}{\PYGZob{}}\PYG{n}{kept}\PYG{l+s+si}{\PYGZcb{}}\PYG{l+s+s2}{\PYGZdq{}}\PYG{p}{)}
+    \PYG{n+nb}{print}\PYG{p}{(}\PYG{l+s+sa}{f}\PYG{l+s+s2}{\PYGZdq{}}\PYG{l+s+s2}{Requested images : }\PYG{l+s+si}{\PYGZob{}}\PYG{n}{num\PYGZus{}samples}\PYG{l+s+si}{\PYGZcb{}}\PYG{l+s+s2}{\PYGZdq{}}\PYG{p}{)}
+    \PYG{n+nb}{print}\PYG{p}{(}\PYG{l+s+sa}{f}\PYG{l+s+s2}{\PYGZdq{}}\PYG{l+s+s2}{Data dir         : }\PYG{l+s+si}{\PYGZob{}}\PYG{n}{out\PYGZus{}dir\PYGZus{}path}\PYG{l+s+si}{\PYGZcb{}}\PYG{l+s+s2}{\PYGZdq{}}\PYG{p}{)}
+    \PYG{n+nb}{print}\PYG{p}{(}\PYG{l+s+sa}{f}\PYG{l+s+s2}{\PYGZdq{}}\PYG{l+s+s2}{Metadata         : }\PYG{l+s+si}{\PYGZob{}}\PYG{n}{meta\PYGZus{}path}\PYG{l+s+si}{\PYGZcb{}}\PYG{l+s+s2}{\PYGZdq{}}\PYG{p}{)}
+
+    \PYG{k}{if} \PYG{n}{kept} \PYG{o}{\PYGZlt{}} \PYG{n}{num\PYGZus{}samples}\PYG{p}{:}
+        \PYG{n+nb}{print}\PYG{p}{(}
+            \PYG{l+s+sa}{f}\PYG{l+s+s2}{\PYGZdq{}}\PYG{l+s+s2}{[WARN] Could not collect the requested }\PYG{l+s+si}{\PYGZob{}}\PYG{n}{num\PYGZus{}samples}\PYG{l+s+si}{\PYGZcb{}}\PYG{l+s+s2}{ images. }\PYG{l+s+s2}{\PYGZdq{}}
+            \PYG{l+s+sa}{f}\PYG{l+s+s2}{\PYGZdq{}}\PYG{l+s+s2}{Only }\PYG{l+s+si}{\PYGZob{}}\PYG{n}{kept}\PYG{l+s+si}{\PYGZcb{}}\PYG{l+s+s2}{ valid downloads were available in the entire shuffled dataset.}\PYG{l+s+s2}{\PYGZdq{}}
+        \PYG{p}{)}
+
+
+\PYG{k}{if} \PYG{n+nv+vm}{\PYGZus{}\PYGZus{}name\PYGZus{}\PYGZus{}} \PYG{o}{==} \PYG{l+s+s2}{\PYGZdq{}}\PYG{l+s+s2}{\PYGZus{}\PYGZus{}main\PYGZus{}\PYGZus{}}\PYG{l+s+s2}{\PYGZdq{}}\PYG{p}{:}
+    \PYG{k+kn}{import}\PYG{+w}{ }\PYG{n+nn}{argparse}
+
+    \PYG{n}{parser} \PYG{o}{=} \PYG{n}{argparse}\PYG{o}{.}\PYG{n}{ArgumentParser}\PYG{p}{(}
+        \PYG{n}{description}\PYG{o}{=}\PYG{p}{(}
+            \PYG{l+s+s2}{\PYGZdq{}}\PYG{l+s+s2}{Build a PixelProse subset with a given index and a target number of }\PYG{l+s+s2}{\PYGZdq{}}
+            \PYG{l+s+s2}{\PYGZdq{}}\PYG{l+s+s2}{successfully downloaded images.}\PYG{l+s+s2}{\PYGZdq{}}
+        \PYG{p}{)}
+    \PYG{p}{)}
+    \PYG{n}{parser}\PYG{o}{.}\PYG{n}{add\PYGZus{}argument}\PYG{p}{(}
+        \PYG{l+s+s2}{\PYGZdq{}}\PYG{l+s+s2}{dataset\PYGZus{}index}\PYG{l+s+s2}{\PYGZdq{}}\PYG{p}{,}
+        \PYG{n+nb}{type}\PYG{o}{=}\PYG{n+nb}{int}\PYG{p}{,}
+        \PYG{n}{help}\PYG{o}{=}\PYG{l+s+s2}{\PYGZdq{}}\PYG{l+s+s2}{Integer index to distinguish this subset (used in directory name and shuffle seed).}\PYG{l+s+s2}{\PYGZdq{}}\PYG{p}{,}
+    \PYG{p}{)}
+    \PYG{n}{parser}\PYG{o}{.}\PYG{n}{add\PYGZus{}argument}\PYG{p}{(}
+        \PYG{l+s+s2}{\PYGZdq{}}\PYG{l+s+s2}{num\PYGZus{}samples}\PYG{l+s+s2}{\PYGZdq{}}\PYG{p}{,}
+        \PYG{n+nb}{type}\PYG{o}{=}\PYG{n+nb}{int}\PYG{p}{,}
+        \PYG{n}{help}\PYG{o}{=}\PYG{l+s+s2}{\PYGZdq{}}\PYG{l+s+s2}{Number of successfully downloaded images to collect.}\PYG{l+s+s2}{\PYGZdq{}}\PYG{p}{,}
+    \PYG{p}{)}
+
+    \PYG{n}{args} \PYG{o}{=} \PYG{n}{parser}\PYG{o}{.}\PYG{n}{parse\PYGZus{}args}\PYG{p}{(}\PYG{p}{)}
+    \PYG{n}{main}\PYG{p}{(}\PYG{n}{args}\PYG{o}{.}\PYG{n}{dataset\PYGZus{}index}\PYG{p}{,} \PYG{n}{args}\PYG{o}{.}\PYG{n}{num\PYGZus{}samples}\PYG{p}{)}
+
+\end{MintedVerbatim}

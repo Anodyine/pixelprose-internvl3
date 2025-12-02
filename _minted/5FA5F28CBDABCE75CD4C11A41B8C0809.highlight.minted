@@ -1,0 +1,327 @@
+\begin{MintedVerbatim}[commandchars=\\\{\}]
+\PYG{c+ch}{\PYGZsh{}!/usr/bin/env python}
+\PYG{c+c1}{\PYGZsh{} scripts/compute\PYGZus{}metrics.py}
+\PYG{c+c1}{\PYGZsh{}}
+\PYG{c+c1}{\PYGZsh{} Compute automatic metrics for one or more eval logs.}
+\PYG{c+c1}{\PYGZsh{} Currently: BLEU only (via sacrebleu).}
+\PYG{c+c1}{\PYGZsh{} Design: to add a new metric (e.g., METEOR), you:}
+\PYG{c+c1}{\PYGZsh{}   1) Implement compute\PYGZus{}meteor(preds, refs)}
+\PYG{c+c1}{\PYGZsh{}   2) Register it in METRIC\PYGZus{}FNS = \PYGZob{}\PYGZdq{}bleu\PYGZdq{}: compute\PYGZus{}bleu, \PYGZdq{}meteor\PYGZdq{}: compute\PYGZus{}meteor, ...\PYGZcb{}}
+\PYG{c+c1}{\PYGZsh{}}
+\PYG{c+c1}{\PYGZsh{} Usage:}
+\PYG{c+c1}{\PYGZsh{}   python \PYGZhy{}m scripts.compute\PYGZus{}metrics \PYGZbs{}}
+\PYG{c+c1}{\PYGZsh{}       \PYGZhy{}\PYGZhy{}logs logs/eval\PYGZus{}subset0\PYGZus{}PT\PYGZus{}N.jsonl \PYGZbs{}}
+\PYG{c+c1}{\PYGZsh{}              logs/eval\PYGZus{}subset0\PYGZus{}PT\PYGZus{}D.jsonl \PYGZbs{}}
+\PYG{c+c1}{\PYGZsh{}              logs/eval\PYGZus{}subset0\PYGZus{}PT\PYGZus{}D\PYGZus{}FS.jsonl \PYGZbs{}}
+\PYG{c+c1}{\PYGZsh{}       \PYGZhy{}\PYGZhy{}out\PYGZhy{}csv metrics/metrics\PYGZus{}subset0\PYGZus{}PT.csv}
+
+\PYG{k+kn}{import}\PYG{+w}{ }\PYG{n+nn}{argparse}
+\PYG{k+kn}{import}\PYG{+w}{ }\PYG{n+nn}{csv}
+\PYG{k+kn}{import}\PYG{+w}{ }\PYG{n+nn}{json}
+\PYG{k+kn}{from}\PYG{+w}{ }\PYG{n+nn}{pathlib}\PYG{+w}{ }\PYG{k+kn}{import} \PYG{n}{Path}
+\PYG{k+kn}{from}\PYG{+w}{ }\PYG{n+nn}{typing}\PYG{+w}{ }\PYG{k+kn}{import} \PYG{n}{List}\PYG{p}{,} \PYG{n}{Dict}\PYG{p}{,} \PYG{n}{Any}\PYG{p}{,} \PYG{n}{Callable}
+
+\PYG{k+kn}{import}\PYG{+w}{ }\PYG{n+nn}{sacrebleu}
+\PYG{k+kn}{import}\PYG{+w}{ }\PYG{n+nn}{nltk}
+\PYG{n}{nltk}\PYG{o}{.}\PYG{n}{data}\PYG{o}{.}\PYG{n}{path}\PYG{o}{.}\PYG{n}{insert}\PYG{p}{(}\PYG{l+m+mi}{0}\PYG{p}{,} \PYG{l+s+s2}{\PYGZdq{}}\PYG{l+s+s2}{.venv/nltk\PYGZus{}data}\PYG{l+s+s2}{\PYGZdq{}}\PYG{p}{)}
+\PYG{k+kn}{from}\PYG{+w}{ }\PYG{n+nn}{nltk}\PYG{n+nn}{.}\PYG{n+nn}{translate}\PYG{n+nn}{.}\PYG{n+nn}{meteor\PYGZus{}score}\PYG{+w}{ }\PYG{k+kn}{import} \PYG{n}{meteor\PYGZus{}score}
+\PYG{k+kn}{from}\PYG{+w}{ }\PYG{n+nn}{nltk}\PYG{n+nn}{.}\PYG{n+nn}{tokenize}\PYG{+w}{ }\PYG{k+kn}{import} \PYG{n}{word\PYGZus{}tokenize}
+\PYG{k+kn}{import}\PYG{+w}{ }\PYG{n+nn}{evaluate}
+
+
+
+\PYG{c+c1}{\PYGZsh{} \PYGZhy{}\PYGZhy{}\PYGZhy{}\PYGZhy{}\PYGZhy{}\PYGZhy{}\PYGZhy{}\PYGZhy{}\PYGZhy{}\PYGZhy{}\PYGZhy{}\PYGZhy{}\PYGZhy{}\PYGZhy{}\PYGZhy{}\PYGZhy{}\PYGZhy{}\PYGZhy{}\PYGZhy{}\PYGZhy{}\PYGZhy{}\PYGZhy{}\PYGZhy{}\PYGZhy{}\PYGZhy{}\PYGZhy{}\PYGZhy{}\PYGZhy{}\PYGZhy{}\PYGZhy{}\PYGZhy{}\PYGZhy{}\PYGZhy{}\PYGZhy{}\PYGZhy{}\PYGZhy{}\PYGZhy{}\PYGZhy{}\PYGZhy{}\PYGZhy{}\PYGZhy{}\PYGZhy{}\PYGZhy{}\PYGZhy{}\PYGZhy{}\PYGZhy{}\PYGZhy{}\PYGZhy{}\PYGZhy{}\PYGZhy{}\PYGZhy{}\PYGZhy{}\PYGZhy{}\PYGZhy{}\PYGZhy{}\PYGZhy{}\PYGZhy{}\PYGZhy{}\PYGZhy{}\PYGZhy{}\PYGZhy{}\PYGZhy{}\PYGZhy{}\PYGZhy{}\PYGZhy{}\PYGZhy{}\PYGZhy{}\PYGZhy{}\PYGZhy{}}
+\PYG{c+c1}{\PYGZsh{} Metric functions (all share the same signature)}
+\PYG{c+c1}{\PYGZsh{} \PYGZhy{}\PYGZhy{}\PYGZhy{}\PYGZhy{}\PYGZhy{}\PYGZhy{}\PYGZhy{}\PYGZhy{}\PYGZhy{}\PYGZhy{}\PYGZhy{}\PYGZhy{}\PYGZhy{}\PYGZhy{}\PYGZhy{}\PYGZhy{}\PYGZhy{}\PYGZhy{}\PYGZhy{}\PYGZhy{}\PYGZhy{}\PYGZhy{}\PYGZhy{}\PYGZhy{}\PYGZhy{}\PYGZhy{}\PYGZhy{}\PYGZhy{}\PYGZhy{}\PYGZhy{}\PYGZhy{}\PYGZhy{}\PYGZhy{}\PYGZhy{}\PYGZhy{}\PYGZhy{}\PYGZhy{}\PYGZhy{}\PYGZhy{}\PYGZhy{}\PYGZhy{}\PYGZhy{}\PYGZhy{}\PYGZhy{}\PYGZhy{}\PYGZhy{}\PYGZhy{}\PYGZhy{}\PYGZhy{}\PYGZhy{}\PYGZhy{}\PYGZhy{}\PYGZhy{}\PYGZhy{}\PYGZhy{}\PYGZhy{}\PYGZhy{}\PYGZhy{}\PYGZhy{}\PYGZhy{}\PYGZhy{}\PYGZhy{}\PYGZhy{}\PYGZhy{}\PYGZhy{}\PYGZhy{}\PYGZhy{}\PYGZhy{}\PYGZhy{}}
+
+\PYG{k}{def}\PYG{+w}{ }\PYG{n+nf}{compute\PYGZus{}bleu}\PYG{p}{(}\PYG{n}{preds}\PYG{p}{:} \PYG{n}{List}\PYG{p}{[}\PYG{n+nb}{str}\PYG{p}{]}\PYG{p}{,} \PYG{n}{refs}\PYG{p}{:} \PYG{n}{List}\PYG{p}{[}\PYG{n+nb}{str}\PYG{p}{]}\PYG{p}{)} \PYG{o}{\PYGZhy{}}\PYG{o}{\PYGZgt{}} \PYG{n+nb}{float}\PYG{p}{:}
+\PYG{+w}{    }\PYG{l+s+sd}{\PYGZdq{}\PYGZdq{}\PYGZdq{}}
+\PYG{l+s+sd}{    Corpus BLEU using sacrebleu.}
+\PYG{l+s+sd}{    preds: list of model predictions (strings)}
+\PYG{l+s+sd}{    refs:  list of reference captions (strings)}
+\PYG{l+s+sd}{    \PYGZdq{}\PYGZdq{}\PYGZdq{}}
+    \PYG{k}{if} \PYG{o+ow}{not} \PYG{n}{preds}\PYG{p}{:}
+        \PYG{k}{return} \PYG{l+m+mf}{0.0}
+    \PYG{n}{bleu} \PYG{o}{=} \PYG{n}{sacrebleu}\PYG{o}{.}\PYG{n}{corpus\PYGZus{}bleu}\PYG{p}{(}\PYG{n}{preds}\PYG{p}{,} \PYG{p}{[}\PYG{n}{refs}\PYG{p}{]}\PYG{p}{)}
+    \PYG{k}{return} \PYG{n+nb}{float}\PYG{p}{(}\PYG{n}{bleu}\PYG{o}{.}\PYG{n}{score}\PYG{p}{)}
+
+\PYG{k}{def}\PYG{+w}{ }\PYG{n+nf}{compute\PYGZus{}meteor}\PYG{p}{(}\PYG{n}{preds}\PYG{p}{:} \PYG{n}{List}\PYG{p}{[}\PYG{n+nb}{str}\PYG{p}{]}\PYG{p}{,} \PYG{n}{refs}\PYG{p}{:} \PYG{n}{List}\PYG{p}{[}\PYG{n+nb}{str}\PYG{p}{]}\PYG{p}{)} \PYG{o}{\PYGZhy{}}\PYG{o}{\PYGZgt{}} \PYG{n+nb}{float}\PYG{p}{:}
+\PYG{+w}{    }\PYG{l+s+sd}{\PYGZdq{}\PYGZdq{}\PYGZdq{}}
+\PYG{l+s+sd}{    Corpus METEOR as the average of sentence\PYGZhy{}level METEOR scores.}
+\PYG{l+s+sd}{    Returns score on 0\PYGZhy{}100 scale for consistency with BLEU.}
+\PYG{l+s+sd}{    \PYGZdq{}\PYGZdq{}\PYGZdq{}}
+    \PYG{k}{if} \PYG{o+ow}{not} \PYG{n}{preds}\PYG{p}{:}
+        \PYG{k}{return} \PYG{l+m+mf}{0.0}
+
+    \PYG{n}{scores} \PYG{o}{=} \PYG{p}{[}\PYG{p}{]}
+    \PYG{k}{for} \PYG{n}{hyp}\PYG{p}{,} \PYG{n}{ref} \PYG{o+ow}{in} \PYG{n+nb}{zip}\PYG{p}{(}\PYG{n}{preds}\PYG{p}{,} \PYG{n}{refs}\PYG{p}{)}\PYG{p}{:}
+        \PYG{n}{hyp} \PYG{o}{=} \PYG{n}{hyp} \PYG{o+ow}{or} \PYG{l+s+s2}{\PYGZdq{}}\PYG{l+s+s2}{\PYGZdq{}}
+        \PYG{n}{ref} \PYG{o}{=} \PYG{n}{ref} \PYG{o+ow}{or} \PYG{l+s+s2}{\PYGZdq{}}\PYG{l+s+s2}{\PYGZdq{}}
+
+        \PYG{c+c1}{\PYGZsh{} Tokenize both hypothesis and reference}
+        \PYG{n}{hyp\PYGZus{}tokens} \PYG{o}{=} \PYG{n}{word\PYGZus{}tokenize}\PYG{p}{(}\PYG{n}{hyp}\PYG{p}{)}
+        \PYG{n}{ref\PYGZus{}tokens} \PYG{o}{=} \PYG{n}{word\PYGZus{}tokenize}\PYG{p}{(}\PYG{n}{ref}\PYG{p}{)}
+
+        \PYG{c+c1}{\PYGZsh{} meteor\PYGZus{}score expects token lists:}
+        \PYG{c+c1}{\PYGZsh{} references: List[List[str]], hypothesis: List[str]}
+        \PYG{n}{scores}\PYG{o}{.}\PYG{n}{append}\PYG{p}{(}\PYG{n}{meteor\PYGZus{}score}\PYG{p}{(}\PYG{p}{[}\PYG{n}{ref\PYGZus{}tokens}\PYG{p}{]}\PYG{p}{,} \PYG{n}{hyp\PYGZus{}tokens}\PYG{p}{)}\PYG{p}{)}
+
+    \PYG{n}{avg\PYGZus{}score} \PYG{o}{=} \PYG{n+nb}{sum}\PYG{p}{(}\PYG{n}{scores}\PYG{p}{)} \PYG{o}{/} \PYG{n+nb}{len}\PYG{p}{(}\PYG{n}{scores}\PYG{p}{)} \PYG{k}{if} \PYG{n}{scores} \PYG{k}{else} \PYG{l+m+mf}{0.0}
+    \PYG{k}{return} \PYG{n+nb}{float}\PYG{p}{(}\PYG{n}{avg\PYGZus{}score} \PYG{o}{*} \PYG{l+m+mf}{100.0}\PYG{p}{)}
+
+\PYG{c+c1}{\PYGZsh{} Global handle for CIDEr metric (lazy\PYGZhy{}loaded)}
+\PYG{n}{\PYGZus{}CIDER\PYGZus{}METRIC} \PYG{o}{=} \PYG{k+kc}{None}
+
+\PYG{k}{def}\PYG{+w}{ }\PYG{n+nf}{get\PYGZus{}cider\PYGZus{}metric}\PYG{p}{(}\PYG{p}{)}\PYG{p}{:}
+    \PYG{k}{global} \PYG{n}{\PYGZus{}CIDER\PYGZus{}METRIC}
+    \PYG{k}{if} \PYG{n}{\PYGZus{}CIDER\PYGZus{}METRIC} \PYG{o+ow}{is} \PYG{k+kc}{None}\PYG{p}{:}
+        \PYG{c+c1}{\PYGZsh{} Uses the Kamichanw/CIDEr metric on the Hub}
+        \PYG{n}{\PYGZus{}CIDER\PYGZus{}METRIC} \PYG{o}{=} \PYG{n}{evaluate}\PYG{o}{.}\PYG{n}{load}\PYG{p}{(}\PYG{l+s+s2}{\PYGZdq{}}\PYG{l+s+s2}{Kamichanw/CIDEr}\PYG{l+s+s2}{\PYGZdq{}}\PYG{p}{)}
+    \PYG{k}{return} \PYG{n}{\PYGZus{}CIDER\PYGZus{}METRIC}
+
+\PYG{k}{def}\PYG{+w}{ }\PYG{n+nf}{compute\PYGZus{}cider}\PYG{p}{(}\PYG{n}{preds}\PYG{p}{:} \PYG{n}{List}\PYG{p}{[}\PYG{n+nb}{str}\PYG{p}{]}\PYG{p}{,} \PYG{n}{refs}\PYG{p}{:} \PYG{n}{List}\PYG{p}{[}\PYG{n+nb}{str}\PYG{p}{]}\PYG{p}{)} \PYG{o}{\PYGZhy{}}\PYG{o}{\PYGZgt{}} \PYG{n+nb}{float}\PYG{p}{:}
+\PYG{+w}{    }\PYG{l+s+sd}{\PYGZdq{}\PYGZdq{}\PYGZdq{}}
+\PYG{l+s+sd}{    Corpus CIDEr using the Hugging Face evaluate implementation.}
+
+\PYG{l+s+sd}{    preds: list of hypothesis captions (strings)}
+\PYG{l+s+sd}{    refs:  list of reference captions (strings)}
+
+\PYG{l+s+sd}{    We have exactly one reference per prediction, so we wrap each ref}
+\PYG{l+s+sd}{    in a singleton list, as the metric expects List[List[str]].}
+\PYG{l+s+sd}{    \PYGZdq{}\PYGZdq{}\PYGZdq{}}
+    \PYG{k}{if} \PYG{o+ow}{not} \PYG{n}{preds}\PYG{p}{:}
+        \PYG{k}{return} \PYG{l+m+mf}{0.0}
+
+    \PYG{n}{metric} \PYG{o}{=} \PYG{n}{get\PYGZus{}cider\PYGZus{}metric}\PYG{p}{(}\PYG{p}{)}
+
+    \PYG{c+c1}{\PYGZsh{} Metric expects:}
+    \PYG{c+c1}{\PYGZsh{}   predictions: List[str]}
+    \PYG{c+c1}{\PYGZsh{}   references: List[List[str]]  (list of reference captions per prediction)}
+    \PYG{n}{references\PYGZus{}wrapped} \PYG{o}{=} \PYG{p}{[}\PYG{p}{[}\PYG{n}{r} \PYG{o+ow}{or} \PYG{l+s+s2}{\PYGZdq{}}\PYG{l+s+s2}{\PYGZdq{}}\PYG{p}{]} \PYG{k}{for} \PYG{n}{r} \PYG{o+ow}{in} \PYG{n}{refs}\PYG{p}{]}
+    \PYG{n}{predictions} \PYG{o}{=} \PYG{p}{[}\PYG{n}{p} \PYG{o+ow}{or} \PYG{l+s+s2}{\PYGZdq{}}\PYG{l+s+s2}{\PYGZdq{}} \PYG{k}{for} \PYG{n}{p} \PYG{o+ow}{in} \PYG{n}{preds}\PYG{p}{]}
+
+    \PYG{n}{result} \PYG{o}{=} \PYG{n}{metric}\PYG{o}{.}\PYG{n}{compute}\PYG{p}{(}\PYG{n}{predictions}\PYG{o}{=}\PYG{n}{predictions}\PYG{p}{,} \PYG{n}{references}\PYG{o}{=}\PYG{n}{references\PYGZus{}wrapped}\PYG{p}{)}
+    \PYG{c+c1}{\PYGZsh{} The metric returns something like \PYGZob{}\PYGZdq{}CIDEr\PYGZdq{}: value\PYGZcb{}}
+    \PYG{n}{score} \PYG{o}{=} \PYG{n+nb}{float}\PYG{p}{(}\PYG{n}{result}\PYG{o}{.}\PYG{n}{get}\PYG{p}{(}\PYG{l+s+s2}{\PYGZdq{}}\PYG{l+s+s2}{CIDEr}\PYG{l+s+s2}{\PYGZdq{}}\PYG{p}{,} \PYG{l+m+mf}{0.0}\PYG{p}{)}\PYG{p}{)}
+
+    \PYG{k}{return} \PYG{n}{score}
+\PYG{c+c1}{\PYGZsh{} Global handle for BERTScore metric (lazy\PYGZhy{}loaded)}
+\PYG{n}{\PYGZus{}BERTSCORE\PYGZus{}METRIC} \PYG{o}{=} \PYG{k+kc}{None}
+
+\PYG{k}{def}\PYG{+w}{ }\PYG{n+nf}{get\PYGZus{}bertscore\PYGZus{}metric}\PYG{p}{(}\PYG{p}{)}\PYG{p}{:}
+    \PYG{k}{global} \PYG{n}{\PYGZus{}BERTSCORE\PYGZus{}METRIC}
+    \PYG{k}{if} \PYG{n}{\PYGZus{}BERTSCORE\PYGZus{}METRIC} \PYG{o+ow}{is} \PYG{k+kc}{None}\PYG{p}{:}
+        \PYG{c+c1}{\PYGZsh{} This uses the \PYGZsq{}bert\PYGZhy{}score\PYGZsq{} metric from Hugging Face evaluate}
+        \PYG{n}{\PYGZus{}BERTSCORE\PYGZus{}METRIC} \PYG{o}{=} \PYG{n}{evaluate}\PYG{o}{.}\PYG{n}{load}\PYG{p}{(}\PYG{l+s+s2}{\PYGZdq{}}\PYG{l+s+s2}{bertscore}\PYG{l+s+s2}{\PYGZdq{}}\PYG{p}{)}
+    \PYG{k}{return} \PYG{n}{\PYGZus{}BERTSCORE\PYGZus{}METRIC}
+
+\PYG{k}{def}\PYG{+w}{ }\PYG{n+nf}{compute\PYGZus{}bertscore}\PYG{p}{(}\PYG{n}{preds}\PYG{p}{:} \PYG{n}{List}\PYG{p}{[}\PYG{n+nb}{str}\PYG{p}{]}\PYG{p}{,} \PYG{n}{refs}\PYG{p}{:} \PYG{n}{List}\PYG{p}{[}\PYG{n+nb}{str}\PYG{p}{]}\PYG{p}{)} \PYG{o}{\PYGZhy{}}\PYG{o}{\PYGZgt{}} \PYG{n+nb}{float}\PYG{p}{:}
+\PYG{+w}{    }\PYG{l+s+sd}{\PYGZdq{}\PYGZdq{}\PYGZdq{}}
+\PYG{l+s+sd}{    Corpus BERTScore (F1), averaged over all examples.}
+\PYG{l+s+sd}{    Returns score on 0\PYGZhy{}100 scale for consistency with BLEU/METEOR/CIDEr.}
+\PYG{l+s+sd}{    \PYGZdq{}\PYGZdq{}\PYGZdq{}}
+    \PYG{k}{if} \PYG{o+ow}{not} \PYG{n}{preds}\PYG{p}{:}
+        \PYG{k}{return} \PYG{l+m+mf}{0.0}
+
+    \PYG{n}{metric} \PYG{o}{=} \PYG{n}{get\PYGZus{}bertscore\PYGZus{}metric}\PYG{p}{(}\PYG{p}{)}
+
+    \PYG{c+c1}{\PYGZsh{} BERTScore expects:}
+    \PYG{c+c1}{\PYGZsh{}   predictions: List[str]}
+    \PYG{c+c1}{\PYGZsh{}   references:  List[str]}
+    \PYG{n}{result} \PYG{o}{=} \PYG{n}{metric}\PYG{o}{.}\PYG{n}{compute}\PYG{p}{(}
+        \PYG{n}{predictions}\PYG{o}{=}\PYG{p}{[}\PYG{n}{p} \PYG{o+ow}{or} \PYG{l+s+s2}{\PYGZdq{}}\PYG{l+s+s2}{\PYGZdq{}} \PYG{k}{for} \PYG{n}{p} \PYG{o+ow}{in} \PYG{n}{preds}\PYG{p}{]}\PYG{p}{,}
+        \PYG{n}{references}\PYG{o}{=}\PYG{p}{[}\PYG{n}{r} \PYG{o+ow}{or} \PYG{l+s+s2}{\PYGZdq{}}\PYG{l+s+s2}{\PYGZdq{}} \PYG{k}{for} \PYG{n}{r} \PYG{o+ow}{in} \PYG{n}{refs}\PYG{p}{]}\PYG{p}{,}
+        \PYG{n}{lang}\PYG{o}{=}\PYG{l+s+s2}{\PYGZdq{}}\PYG{l+s+s2}{en}\PYG{l+s+s2}{\PYGZdq{}}\PYG{p}{,}
+        \PYG{n}{model\PYGZus{}type}\PYG{o}{=}\PYG{l+s+s2}{\PYGZdq{}}\PYG{l+s+s2}{bert\PYGZhy{}base\PYGZhy{}uncased}\PYG{l+s+s2}{\PYGZdq{}}\PYG{p}{,}  \PYG{c+c1}{\PYGZsh{} lighter, good enough for this project}
+        \PYG{n}{rescale\PYGZus{}with\PYGZus{}baseline}\PYG{o}{=}\PYG{k+kc}{True}\PYG{p}{,}
+    \PYG{p}{)}
+
+    \PYG{c+c1}{\PYGZsh{} result[\PYGZdq{}f1\PYGZdq{}] is a list of per\PYGZhy{}example scores in [0, 1]}
+    \PYG{n}{f1\PYGZus{}scores} \PYG{o}{=} \PYG{n}{result}\PYG{p}{[}\PYG{l+s+s2}{\PYGZdq{}}\PYG{l+s+s2}{f1}\PYG{l+s+s2}{\PYGZdq{}}\PYG{p}{]}
+    \PYG{n}{avg\PYGZus{}f1} \PYG{o}{=} \PYG{n+nb}{sum}\PYG{p}{(}\PYG{n}{f1\PYGZus{}scores}\PYG{p}{)} \PYG{o}{/} \PYG{n+nb}{len}\PYG{p}{(}\PYG{n}{f1\PYGZus{}scores}\PYG{p}{)}
+
+    \PYG{k}{return} \PYG{n+nb}{float}\PYG{p}{(}\PYG{n}{avg\PYGZus{}f1} \PYG{o}{*} \PYG{l+m+mf}{100.0}\PYG{p}{)}
+
+\PYG{c+c1}{\PYGZsh{} Registry of metric name \PYGZhy{}\PYGZgt{} function}
+\PYG{n}{METRIC\PYGZus{}FNS}\PYG{p}{:} \PYG{n}{Dict}\PYG{p}{[}\PYG{n+nb}{str}\PYG{p}{,} \PYG{n}{Callable}\PYG{p}{[}\PYG{p}{[}\PYG{n}{List}\PYG{p}{[}\PYG{n+nb}{str}\PYG{p}{]}\PYG{p}{,} \PYG{n}{List}\PYG{p}{[}\PYG{n+nb}{str}\PYG{p}{]}\PYG{p}{]}\PYG{p}{,} \PYG{n+nb}{float}\PYG{p}{]}\PYG{p}{]} \PYG{o}{=} \PYG{p}{\PYGZob{}}
+    \PYG{l+s+s2}{\PYGZdq{}}\PYG{l+s+s2}{bleu}\PYG{l+s+s2}{\PYGZdq{}}\PYG{p}{:} \PYG{n}{compute\PYGZus{}bleu}\PYG{p}{,}
+    \PYG{l+s+s2}{\PYGZdq{}}\PYG{l+s+s2}{meteor}\PYG{l+s+s2}{\PYGZdq{}}\PYG{p}{:} \PYG{n}{compute\PYGZus{}meteor}\PYG{p}{,}
+    \PYG{l+s+s2}{\PYGZdq{}}\PYG{l+s+s2}{cider}\PYG{l+s+s2}{\PYGZdq{}}\PYG{p}{:} \PYG{n}{compute\PYGZus{}cider}\PYG{p}{,}
+    \PYG{l+s+s2}{\PYGZdq{}}\PYG{l+s+s2}{bertscore}\PYG{l+s+s2}{\PYGZdq{}}\PYG{p}{:} \PYG{n}{compute\PYGZus{}bertscore}\PYG{p}{,}
+\PYG{p}{\PYGZcb{}}
+
+\PYG{c+c1}{\PYGZsh{} \PYGZhy{}\PYGZhy{}\PYGZhy{}\PYGZhy{}\PYGZhy{}\PYGZhy{}\PYGZhy{}\PYGZhy{}\PYGZhy{}\PYGZhy{}\PYGZhy{}\PYGZhy{}\PYGZhy{}\PYGZhy{}\PYGZhy{}\PYGZhy{}\PYGZhy{}\PYGZhy{}\PYGZhy{}\PYGZhy{}\PYGZhy{}\PYGZhy{}\PYGZhy{}\PYGZhy{}\PYGZhy{}\PYGZhy{}\PYGZhy{}\PYGZhy{}\PYGZhy{}\PYGZhy{}\PYGZhy{}\PYGZhy{}\PYGZhy{}\PYGZhy{}\PYGZhy{}\PYGZhy{}\PYGZhy{}\PYGZhy{}\PYGZhy{}\PYGZhy{}\PYGZhy{}\PYGZhy{}\PYGZhy{}\PYGZhy{}\PYGZhy{}\PYGZhy{}\PYGZhy{}\PYGZhy{}\PYGZhy{}\PYGZhy{}\PYGZhy{}\PYGZhy{}\PYGZhy{}\PYGZhy{}\PYGZhy{}\PYGZhy{}\PYGZhy{}\PYGZhy{}\PYGZhy{}\PYGZhy{}\PYGZhy{}\PYGZhy{}\PYGZhy{}\PYGZhy{}\PYGZhy{}\PYGZhy{}\PYGZhy{}\PYGZhy{}\PYGZhy{}}
+\PYG{c+c1}{\PYGZsh{} Helpers to load logs and compute basic stats}
+\PYG{c+c1}{\PYGZsh{} \PYGZhy{}\PYGZhy{}\PYGZhy{}\PYGZhy{}\PYGZhy{}\PYGZhy{}\PYGZhy{}\PYGZhy{}\PYGZhy{}\PYGZhy{}\PYGZhy{}\PYGZhy{}\PYGZhy{}\PYGZhy{}\PYGZhy{}\PYGZhy{}\PYGZhy{}\PYGZhy{}\PYGZhy{}\PYGZhy{}\PYGZhy{}\PYGZhy{}\PYGZhy{}\PYGZhy{}\PYGZhy{}\PYGZhy{}\PYGZhy{}\PYGZhy{}\PYGZhy{}\PYGZhy{}\PYGZhy{}\PYGZhy{}\PYGZhy{}\PYGZhy{}\PYGZhy{}\PYGZhy{}\PYGZhy{}\PYGZhy{}\PYGZhy{}\PYGZhy{}\PYGZhy{}\PYGZhy{}\PYGZhy{}\PYGZhy{}\PYGZhy{}\PYGZhy{}\PYGZhy{}\PYGZhy{}\PYGZhy{}\PYGZhy{}\PYGZhy{}\PYGZhy{}\PYGZhy{}\PYGZhy{}\PYGZhy{}\PYGZhy{}\PYGZhy{}\PYGZhy{}\PYGZhy{}\PYGZhy{}\PYGZhy{}\PYGZhy{}\PYGZhy{}\PYGZhy{}\PYGZhy{}\PYGZhy{}\PYGZhy{}\PYGZhy{}\PYGZhy{}}
+
+\PYG{k}{def}\PYG{+w}{ }\PYG{n+nf}{load\PYGZus{}records}\PYG{p}{(}\PYG{n}{path}\PYG{p}{:} \PYG{n}{Path}\PYG{p}{)} \PYG{o}{\PYGZhy{}}\PYG{o}{\PYGZgt{}} \PYG{n}{List}\PYG{p}{[}\PYG{n}{Dict}\PYG{p}{[}\PYG{n+nb}{str}\PYG{p}{,} \PYG{n}{Any}\PYG{p}{]}\PYG{p}{]}\PYG{p}{:}
+    \PYG{k}{assert} \PYG{n}{path}\PYG{o}{.}\PYG{n}{exists}\PYG{p}{(}\PYG{p}{)}\PYG{p}{,} \PYG{l+s+sa}{f}\PYG{l+s+s2}{\PYGZdq{}}\PYG{l+s+s2}{Log file not found: }\PYG{l+s+si}{\PYGZob{}}\PYG{n}{path}\PYG{l+s+si}{\PYGZcb{}}\PYG{l+s+s2}{\PYGZdq{}}
+    \PYG{n}{recs}\PYG{p}{:} \PYG{n}{List}\PYG{p}{[}\PYG{n}{Dict}\PYG{p}{[}\PYG{n+nb}{str}\PYG{p}{,} \PYG{n}{Any}\PYG{p}{]}\PYG{p}{]} \PYG{o}{=} \PYG{p}{[}\PYG{p}{]}
+    \PYG{k}{with} \PYG{n}{path}\PYG{o}{.}\PYG{n}{open}\PYG{p}{(}\PYG{l+s+s2}{\PYGZdq{}}\PYG{l+s+s2}{r}\PYG{l+s+s2}{\PYGZdq{}}\PYG{p}{,} \PYG{n}{encoding}\PYG{o}{=}\PYG{l+s+s2}{\PYGZdq{}}\PYG{l+s+s2}{utf\PYGZhy{}8}\PYG{l+s+s2}{\PYGZdq{}}\PYG{p}{)} \PYG{k}{as} \PYG{n}{f}\PYG{p}{:}
+        \PYG{k}{for} \PYG{n}{line} \PYG{o+ow}{in} \PYG{n}{f}\PYG{p}{:}
+            \PYG{n}{line} \PYG{o}{=} \PYG{n}{line}\PYG{o}{.}\PYG{n}{strip}\PYG{p}{(}\PYG{p}{)}
+            \PYG{k}{if} \PYG{o+ow}{not} \PYG{n}{line}\PYG{p}{:}
+                \PYG{k}{continue}
+            \PYG{n}{recs}\PYG{o}{.}\PYG{n}{append}\PYG{p}{(}\PYG{n}{json}\PYG{o}{.}\PYG{n}{loads}\PYG{p}{(}\PYG{n}{line}\PYG{p}{)}\PYG{p}{)}
+    \PYG{k}{return} \PYG{n}{recs}
+
+
+\PYG{k}{def}\PYG{+w}{ }\PYG{n+nf}{avg\PYGZus{}len}\PYG{p}{(}\PYG{n}{texts}\PYG{p}{:} \PYG{n}{List}\PYG{p}{[}\PYG{n+nb}{str}\PYG{p}{]}\PYG{p}{)} \PYG{o}{\PYGZhy{}}\PYG{o}{\PYGZgt{}} \PYG{n+nb}{float}\PYG{p}{:}
+    \PYG{k}{if} \PYG{o+ow}{not} \PYG{n}{texts}\PYG{p}{:}
+        \PYG{k}{return} \PYG{l+m+mf}{0.0}
+    \PYG{k}{return} \PYG{n+nb}{sum}\PYG{p}{(}\PYG{n+nb}{len}\PYG{p}{(}\PYG{n}{t}\PYG{o}{.}\PYG{n}{split}\PYG{p}{(}\PYG{p}{)}\PYG{p}{)} \PYG{k}{for} \PYG{n}{t} \PYG{o+ow}{in} \PYG{n}{texts}\PYG{p}{)} \PYG{o}{/} \PYG{n+nb}{len}\PYG{p}{(}\PYG{n}{texts}\PYG{p}{)}
+
+
+\PYG{k}{def}\PYG{+w}{ }\PYG{n+nf}{compute\PYGZus{}all\PYGZus{}metrics}\PYG{p}{(}\PYG{n}{preds}\PYG{p}{:} \PYG{n}{List}\PYG{p}{[}\PYG{n+nb}{str}\PYG{p}{]}\PYG{p}{,} \PYG{n}{refs}\PYG{p}{:} \PYG{n}{List}\PYG{p}{[}\PYG{n+nb}{str}\PYG{p}{]}\PYG{p}{)} \PYG{o}{\PYGZhy{}}\PYG{o}{\PYGZgt{}} \PYG{n}{Dict}\PYG{p}{[}\PYG{n+nb}{str}\PYG{p}{,} \PYG{n+nb}{float}\PYG{p}{]}\PYG{p}{:}
+\PYG{+w}{    }\PYG{l+s+sd}{\PYGZdq{}\PYGZdq{}\PYGZdq{}}
+\PYG{l+s+sd}{    Run all registered metrics in METRIC\PYGZus{}FNS and return a dict}
+\PYG{l+s+sd}{    \PYGZob{}metric\PYGZus{}name: value\PYGZcb{}.}
+\PYG{l+s+sd}{    \PYGZdq{}\PYGZdq{}\PYGZdq{}}
+    \PYG{n}{results}\PYG{p}{:} \PYG{n}{Dict}\PYG{p}{[}\PYG{n+nb}{str}\PYG{p}{,} \PYG{n+nb}{float}\PYG{p}{]} \PYG{o}{=} \PYG{p}{\PYGZob{}}\PYG{p}{\PYGZcb{}}
+    \PYG{k}{for} \PYG{n}{name}\PYG{p}{,} \PYG{n}{fn} \PYG{o+ow}{in} \PYG{n}{METRIC\PYGZus{}FNS}\PYG{o}{.}\PYG{n}{items}\PYG{p}{(}\PYG{p}{)}\PYG{p}{:}
+        \PYG{n}{results}\PYG{p}{[}\PYG{n}{name}\PYG{p}{]} \PYG{o}{=} \PYG{n}{fn}\PYG{p}{(}\PYG{n}{preds}\PYG{p}{,} \PYG{n}{refs}\PYG{p}{)}
+    \PYG{k}{return} \PYG{n}{results}
+
+
+\PYG{k}{def}\PYG{+w}{ }\PYG{n+nf}{summarize}\PYG{p}{(}\PYG{n}{path}\PYG{p}{:} \PYG{n}{Path}\PYG{p}{)} \PYG{o}{\PYGZhy{}}\PYG{o}{\PYGZgt{}} \PYG{n}{Dict}\PYG{p}{[}\PYG{n+nb}{str}\PYG{p}{,} \PYG{n}{Any}\PYG{p}{]}\PYG{p}{:}
+    \PYG{n}{recs} \PYG{o}{=} \PYG{n}{load\PYGZus{}records}\PYG{p}{(}\PYG{n}{path}\PYG{p}{)}
+
+    \PYG{k}{if} \PYG{o+ow}{not} \PYG{n}{recs}\PYG{p}{:}
+        \PYG{n}{base} \PYG{o}{=} \PYG{p}{\PYGZob{}}
+            \PYG{l+s+s2}{\PYGZdq{}}\PYG{l+s+s2}{log}\PYG{l+s+s2}{\PYGZdq{}}\PYG{p}{:} \PYG{n+nb}{str}\PYG{p}{(}\PYG{n}{path}\PYG{p}{)}\PYG{p}{,}
+            \PYG{l+s+s2}{\PYGZdq{}}\PYG{l+s+s2}{prompting\PYGZus{}method}\PYG{l+s+s2}{\PYGZdq{}}\PYG{p}{:} \PYG{l+s+s2}{\PYGZdq{}}\PYG{l+s+s2}{\PYGZdq{}}\PYG{p}{,}
+            \PYG{l+s+s2}{\PYGZdq{}}\PYG{l+s+s2}{model\PYGZus{}config}\PYG{l+s+s2}{\PYGZdq{}}\PYG{p}{:} \PYG{l+s+s2}{\PYGZdq{}}\PYG{l+s+s2}{\PYGZdq{}}\PYG{p}{,}
+            \PYG{l+s+s2}{\PYGZdq{}}\PYG{l+s+s2}{num\PYGZus{}records}\PYG{l+s+s2}{\PYGZdq{}}\PYG{p}{:} \PYG{l+m+mi}{0}\PYG{p}{,}
+            \PYG{l+s+s2}{\PYGZdq{}}\PYG{l+s+s2}{avg\PYGZus{}gt\PYGZus{}len}\PYG{l+s+s2}{\PYGZdq{}}\PYG{p}{:} \PYG{l+m+mf}{0.0}\PYG{p}{,}
+            \PYG{l+s+s2}{\PYGZdq{}}\PYG{l+s+s2}{avg\PYGZus{}pred\PYGZus{}len}\PYG{l+s+s2}{\PYGZdq{}}\PYG{p}{:} \PYG{l+m+mf}{0.0}\PYG{p}{,}
+        \PYG{p}{\PYGZcb{}}
+        \PYG{c+c1}{\PYGZsh{} Fill metrics with zeros so CSV headers remain consistent}
+        \PYG{k}{for} \PYG{n}{m} \PYG{o+ow}{in} \PYG{n}{METRIC\PYGZus{}FNS}\PYG{o}{.}\PYG{n}{keys}\PYG{p}{(}\PYG{p}{)}\PYG{p}{:}
+            \PYG{n}{base}\PYG{p}{[}\PYG{n}{m}\PYG{p}{]} \PYG{o}{=} \PYG{l+m+mf}{0.0}
+        \PYG{k}{return} \PYG{n}{base}
+
+    \PYG{n}{gts} \PYG{o}{=} \PYG{p}{[}\PYG{n}{r}\PYG{p}{[}\PYG{l+s+s2}{\PYGZdq{}}\PYG{l+s+s2}{gt\PYGZus{}caption}\PYG{l+s+s2}{\PYGZdq{}}\PYG{p}{]} \PYG{k}{for} \PYG{n}{r} \PYG{o+ow}{in} \PYG{n}{recs}\PYG{p}{]}
+    \PYG{n}{preds} \PYG{o}{=} \PYG{p}{[}\PYG{n}{r}\PYG{p}{[}\PYG{l+s+s2}{\PYGZdq{}}\PYG{l+s+s2}{prediction}\PYG{l+s+s2}{\PYGZdq{}}\PYG{p}{]} \PYG{k}{for} \PYG{n}{r} \PYG{o+ow}{in} \PYG{n}{recs}\PYG{p}{]}
+
+    \PYG{n}{avg\PYGZus{}gt} \PYG{o}{=} \PYG{n}{avg\PYGZus{}len}\PYG{p}{(}\PYG{n}{gts}\PYG{p}{)}
+    \PYG{n}{avg\PYGZus{}pred} \PYG{o}{=} \PYG{n}{avg\PYGZus{}len}\PYG{p}{(}\PYG{n}{preds}\PYG{p}{)}
+    \PYG{n}{metric\PYGZus{}vals} \PYG{o}{=} \PYG{n}{compute\PYGZus{}all\PYGZus{}metrics}\PYG{p}{(}\PYG{n}{preds}\PYG{p}{,} \PYG{n}{gts}\PYG{p}{)}
+
+    \PYG{n}{tag\PYGZus{}pm} \PYG{o}{=} \PYG{n}{recs}\PYG{p}{[}\PYG{l+m+mi}{0}\PYG{p}{]}\PYG{o}{.}\PYG{n}{get}\PYG{p}{(}\PYG{l+s+s2}{\PYGZdq{}}\PYG{l+s+s2}{prompting\PYGZus{}method}\PYG{l+s+s2}{\PYGZdq{}}\PYG{p}{,} \PYG{l+s+s2}{\PYGZdq{}}\PYG{l+s+s2}{\PYGZdq{}}\PYG{p}{)}
+    \PYG{n}{tag\PYGZus{}cfg} \PYG{o}{=} \PYG{n}{recs}\PYG{p}{[}\PYG{l+m+mi}{0}\PYG{p}{]}\PYG{o}{.}\PYG{n}{get}\PYG{p}{(}\PYG{l+s+s2}{\PYGZdq{}}\PYG{l+s+s2}{model\PYGZus{}config}\PYG{l+s+s2}{\PYGZdq{}}\PYG{p}{,} \PYG{l+s+s2}{\PYGZdq{}}\PYG{l+s+s2}{\PYGZdq{}}\PYG{p}{)}
+
+    \PYG{n}{row}\PYG{p}{:} \PYG{n}{Dict}\PYG{p}{[}\PYG{n+nb}{str}\PYG{p}{,} \PYG{n}{Any}\PYG{p}{]} \PYG{o}{=} \PYG{p}{\PYGZob{}}
+        \PYG{l+s+s2}{\PYGZdq{}}\PYG{l+s+s2}{log}\PYG{l+s+s2}{\PYGZdq{}}\PYG{p}{:} \PYG{n+nb}{str}\PYG{p}{(}\PYG{n}{path}\PYG{p}{)}\PYG{p}{,}
+        \PYG{l+s+s2}{\PYGZdq{}}\PYG{l+s+s2}{prompting\PYGZus{}method}\PYG{l+s+s2}{\PYGZdq{}}\PYG{p}{:} \PYG{n}{tag\PYGZus{}pm}\PYG{p}{,}
+        \PYG{l+s+s2}{\PYGZdq{}}\PYG{l+s+s2}{model\PYGZus{}config}\PYG{l+s+s2}{\PYGZdq{}}\PYG{p}{:} \PYG{n}{tag\PYGZus{}cfg}\PYG{p}{,}
+        \PYG{l+s+s2}{\PYGZdq{}}\PYG{l+s+s2}{num\PYGZus{}records}\PYG{l+s+s2}{\PYGZdq{}}\PYG{p}{:} \PYG{n+nb}{len}\PYG{p}{(}\PYG{n}{recs}\PYG{p}{)}\PYG{p}{,}
+        \PYG{l+s+s2}{\PYGZdq{}}\PYG{l+s+s2}{avg\PYGZus{}gt\PYGZus{}len}\PYG{l+s+s2}{\PYGZdq{}}\PYG{p}{:} \PYG{n}{avg\PYGZus{}gt}\PYG{p}{,}
+        \PYG{l+s+s2}{\PYGZdq{}}\PYG{l+s+s2}{avg\PYGZus{}pred\PYGZus{}len}\PYG{l+s+s2}{\PYGZdq{}}\PYG{p}{:} \PYG{n}{avg\PYGZus{}pred}\PYG{p}{,}
+    \PYG{p}{\PYGZcb{}}
+    \PYG{n}{row}\PYG{o}{.}\PYG{n}{update}\PYG{p}{(}\PYG{n}{metric\PYGZus{}vals}\PYG{p}{)}
+    \PYG{k}{return} \PYG{n}{row}
+
+
+\PYG{c+c1}{\PYGZsh{} \PYGZhy{}\PYGZhy{}\PYGZhy{}\PYGZhy{}\PYGZhy{}\PYGZhy{}\PYGZhy{}\PYGZhy{}\PYGZhy{}\PYGZhy{}\PYGZhy{}\PYGZhy{}\PYGZhy{}\PYGZhy{}\PYGZhy{}\PYGZhy{}\PYGZhy{}\PYGZhy{}\PYGZhy{}\PYGZhy{}\PYGZhy{}\PYGZhy{}\PYGZhy{}\PYGZhy{}\PYGZhy{}\PYGZhy{}\PYGZhy{}\PYGZhy{}\PYGZhy{}\PYGZhy{}\PYGZhy{}\PYGZhy{}\PYGZhy{}\PYGZhy{}\PYGZhy{}\PYGZhy{}\PYGZhy{}\PYGZhy{}\PYGZhy{}\PYGZhy{}\PYGZhy{}\PYGZhy{}\PYGZhy{}\PYGZhy{}\PYGZhy{}\PYGZhy{}\PYGZhy{}\PYGZhy{}\PYGZhy{}\PYGZhy{}\PYGZhy{}\PYGZhy{}\PYGZhy{}\PYGZhy{}\PYGZhy{}\PYGZhy{}\PYGZhy{}\PYGZhy{}\PYGZhy{}\PYGZhy{}\PYGZhy{}\PYGZhy{}\PYGZhy{}\PYGZhy{}\PYGZhy{}\PYGZhy{}\PYGZhy{}\PYGZhy{}\PYGZhy{}}
+\PYG{c+c1}{\PYGZsh{} CSV + pretty table}
+\PYG{c+c1}{\PYGZsh{} \PYGZhy{}\PYGZhy{}\PYGZhy{}\PYGZhy{}\PYGZhy{}\PYGZhy{}\PYGZhy{}\PYGZhy{}\PYGZhy{}\PYGZhy{}\PYGZhy{}\PYGZhy{}\PYGZhy{}\PYGZhy{}\PYGZhy{}\PYGZhy{}\PYGZhy{}\PYGZhy{}\PYGZhy{}\PYGZhy{}\PYGZhy{}\PYGZhy{}\PYGZhy{}\PYGZhy{}\PYGZhy{}\PYGZhy{}\PYGZhy{}\PYGZhy{}\PYGZhy{}\PYGZhy{}\PYGZhy{}\PYGZhy{}\PYGZhy{}\PYGZhy{}\PYGZhy{}\PYGZhy{}\PYGZhy{}\PYGZhy{}\PYGZhy{}\PYGZhy{}\PYGZhy{}\PYGZhy{}\PYGZhy{}\PYGZhy{}\PYGZhy{}\PYGZhy{}\PYGZhy{}\PYGZhy{}\PYGZhy{}\PYGZhy{}\PYGZhy{}\PYGZhy{}\PYGZhy{}\PYGZhy{}\PYGZhy{}\PYGZhy{}\PYGZhy{}\PYGZhy{}\PYGZhy{}\PYGZhy{}\PYGZhy{}\PYGZhy{}\PYGZhy{}\PYGZhy{}\PYGZhy{}\PYGZhy{}\PYGZhy{}\PYGZhy{}\PYGZhy{}}
+
+\PYG{k}{def}\PYG{+w}{ }\PYG{n+nf}{write\PYGZus{}csv}\PYG{p}{(}\PYG{n}{rows}\PYG{p}{:} \PYG{n}{List}\PYG{p}{[}\PYG{n}{Dict}\PYG{p}{[}\PYG{n+nb}{str}\PYG{p}{,} \PYG{n}{Any}\PYG{p}{]}\PYG{p}{]}\PYG{p}{,} \PYG{n}{out\PYGZus{}csv}\PYG{p}{:} \PYG{n}{Path}\PYG{p}{)} \PYG{o}{\PYGZhy{}}\PYG{o}{\PYGZgt{}} \PYG{k+kc}{None}\PYG{p}{:}
+    \PYG{n}{out\PYGZus{}csv}\PYG{o}{.}\PYG{n}{parent}\PYG{o}{.}\PYG{n}{mkdir}\PYG{p}{(}\PYG{n}{parents}\PYG{o}{=}\PYG{k+kc}{True}\PYG{p}{,} \PYG{n}{exist\PYGZus{}ok}\PYG{o}{=}\PYG{k+kc}{True}\PYG{p}{)}
+
+    \PYG{n}{base\PYGZus{}fields} \PYG{o}{=} \PYG{p}{[}
+        \PYG{l+s+s2}{\PYGZdq{}}\PYG{l+s+s2}{log}\PYG{l+s+s2}{\PYGZdq{}}\PYG{p}{,}
+        \PYG{l+s+s2}{\PYGZdq{}}\PYG{l+s+s2}{prompting\PYGZus{}method}\PYG{l+s+s2}{\PYGZdq{}}\PYG{p}{,}
+        \PYG{l+s+s2}{\PYGZdq{}}\PYG{l+s+s2}{model\PYGZus{}config}\PYG{l+s+s2}{\PYGZdq{}}\PYG{p}{,}
+        \PYG{l+s+s2}{\PYGZdq{}}\PYG{l+s+s2}{num\PYGZus{}records}\PYG{l+s+s2}{\PYGZdq{}}\PYG{p}{,}
+        \PYG{l+s+s2}{\PYGZdq{}}\PYG{l+s+s2}{avg\PYGZus{}gt\PYGZus{}len}\PYG{l+s+s2}{\PYGZdq{}}\PYG{p}{,}
+        \PYG{l+s+s2}{\PYGZdq{}}\PYG{l+s+s2}{avg\PYGZus{}pred\PYGZus{}len}\PYG{l+s+s2}{\PYGZdq{}}\PYG{p}{,}
+    \PYG{p}{]}
+    \PYG{n}{metric\PYGZus{}fields} \PYG{o}{=} \PYG{n+nb}{list}\PYG{p}{(}\PYG{n}{METRIC\PYGZus{}FNS}\PYG{o}{.}\PYG{n}{keys}\PYG{p}{(}\PYG{p}{)}\PYG{p}{)}
+    \PYG{n}{fieldnames} \PYG{o}{=} \PYG{n}{base\PYGZus{}fields} \PYG{o}{+} \PYG{n}{metric\PYGZus{}fields}
+
+    \PYG{k}{with} \PYG{n}{out\PYGZus{}csv}\PYG{o}{.}\PYG{n}{open}\PYG{p}{(}\PYG{l+s+s2}{\PYGZdq{}}\PYG{l+s+s2}{w}\PYG{l+s+s2}{\PYGZdq{}}\PYG{p}{,} \PYG{n}{newline}\PYG{o}{=}\PYG{l+s+s2}{\PYGZdq{}}\PYG{l+s+s2}{\PYGZdq{}}\PYG{p}{,} \PYG{n}{encoding}\PYG{o}{=}\PYG{l+s+s2}{\PYGZdq{}}\PYG{l+s+s2}{utf\PYGZhy{}8}\PYG{l+s+s2}{\PYGZdq{}}\PYG{p}{)} \PYG{k}{as} \PYG{n}{f}\PYG{p}{:}
+        \PYG{n}{writer} \PYG{o}{=} \PYG{n}{csv}\PYG{o}{.}\PYG{n}{DictWriter}\PYG{p}{(}\PYG{n}{f}\PYG{p}{,} \PYG{n}{fieldnames}\PYG{o}{=}\PYG{n}{fieldnames}\PYG{p}{)}
+        \PYG{n}{writer}\PYG{o}{.}\PYG{n}{writeheader}\PYG{p}{(}\PYG{p}{)}
+        \PYG{k}{for} \PYG{n}{r} \PYG{o+ow}{in} \PYG{n}{rows}\PYG{p}{:}
+            \PYG{n}{writer}\PYG{o}{.}\PYG{n}{writerow}\PYG{p}{(}\PYG{p}{\PYGZob{}}\PYG{n}{k}\PYG{p}{:} \PYG{n}{r}\PYG{o}{.}\PYG{n}{get}\PYG{p}{(}\PYG{n}{k}\PYG{p}{,} \PYG{l+s+s2}{\PYGZdq{}}\PYG{l+s+s2}{\PYGZdq{}}\PYG{p}{)} \PYG{k}{for} \PYG{n}{k} \PYG{o+ow}{in} \PYG{n}{fieldnames}\PYG{p}{\PYGZcb{}}\PYG{p}{)}
+
+    \PYG{n+nb}{print}\PYG{p}{(}\PYG{l+s+sa}{f}\PYG{l+s+s2}{\PYGZdq{}}\PYG{l+s+se}{\PYGZbs{}n}\PYG{l+s+s2}{[INFO] Wrote metrics CSV to: }\PYG{l+s+si}{\PYGZob{}}\PYG{n}{out\PYGZus{}csv}\PYG{l+s+si}{\PYGZcb{}}\PYG{l+s+s2}{\PYGZdq{}}\PYG{p}{)}
+
+
+\PYG{k}{def}\PYG{+w}{ }\PYG{n+nf}{print\PYGZus{}table}\PYG{p}{(}\PYG{n}{rows}\PYG{p}{:} \PYG{n}{List}\PYG{p}{[}\PYG{n}{Dict}\PYG{p}{[}\PYG{n+nb}{str}\PYG{p}{,} \PYG{n}{Any}\PYG{p}{]}\PYG{p}{]}\PYG{p}{)} \PYG{o}{\PYGZhy{}}\PYG{o}{\PYGZgt{}} \PYG{k+kc}{None}\PYG{p}{:}
+\PYG{+w}{    }\PYG{l+s+sd}{\PYGZdq{}\PYGZdq{}\PYGZdq{}}
+\PYG{l+s+sd}{    Pretty console output showing all registered metrics dynamically.}
+\PYG{l+s+sd}{    \PYGZdq{}\PYGZdq{}\PYGZdq{}}
+    \PYG{n}{metric\PYGZus{}names} \PYG{o}{=} \PYG{n+nb}{list}\PYG{p}{(}\PYG{n}{METRIC\PYGZus{}FNS}\PYG{o}{.}\PYG{n}{keys}\PYG{p}{(}\PYG{p}{)}\PYG{p}{)}  \PYG{c+c1}{\PYGZsh{} e.g. [\PYGZdq{}bleu\PYGZdq{}, \PYGZdq{}meteor\PYGZdq{}]}
+
+    \PYG{n+nb}{print}\PYG{p}{(}\PYG{l+s+s2}{\PYGZdq{}}\PYG{l+s+se}{\PYGZbs{}n}\PYG{l+s+s2}{=== Metric Summary ===}\PYG{l+s+se}{\PYGZbs{}n}\PYG{l+s+s2}{\PYGZdq{}}\PYG{p}{)}
+
+    \PYG{c+c1}{\PYGZsh{} Build dynamic header}
+    \PYG{n}{header\PYGZus{}parts} \PYG{o}{=} \PYG{p}{[}
+        \PYG{l+s+sa}{f}\PYG{l+s+s2}{\PYGZdq{}}\PYG{l+s+si}{\PYGZob{}}\PYG{l+s+s1}{\PYGZsq{}}\PYG{l+s+s1}{log}\PYG{l+s+s1}{\PYGZsq{}}\PYG{l+s+si}{:}\PYG{l+s+s2}{45}\PYG{l+s+si}{\PYGZcb{}}\PYG{l+s+s2}{\PYGZdq{}}\PYG{p}{,}
+        \PYG{l+s+sa}{f}\PYG{l+s+s2}{\PYGZdq{}}\PYG{l+s+si}{\PYGZob{}}\PYG{l+s+s1}{\PYGZsq{}}\PYG{l+s+s1}{PM}\PYG{l+s+s1}{\PYGZsq{}}\PYG{l+s+si}{:}\PYG{l+s+s2}{\PYGZgt{}2}\PYG{l+s+si}{\PYGZcb{}}\PYG{l+s+s2}{\PYGZdq{}}\PYG{p}{,}
+        \PYG{l+s+sa}{f}\PYG{l+s+s2}{\PYGZdq{}}\PYG{l+s+si}{\PYGZob{}}\PYG{l+s+s1}{\PYGZsq{}}\PYG{l+s+s1}{CFG}\PYG{l+s+s1}{\PYGZsq{}}\PYG{l+s+si}{:}\PYG{l+s+s2}{\PYGZgt{}3}\PYG{l+s+si}{\PYGZcb{}}\PYG{l+s+s2}{\PYGZdq{}}\PYG{p}{,}
+        \PYG{l+s+sa}{f}\PYG{l+s+s2}{\PYGZdq{}}\PYG{l+s+si}{\PYGZob{}}\PYG{l+s+s1}{\PYGZsq{}}\PYG{l+s+s1}{\PYGZsh{}}\PYG{l+s+s1}{\PYGZsq{}}\PYG{l+s+si}{:}\PYG{l+s+s2}{\PYGZgt{}5}\PYG{l+s+si}{\PYGZcb{}}\PYG{l+s+s2}{\PYGZdq{}}\PYG{p}{,}
+        \PYG{l+s+sa}{f}\PYG{l+s+s2}{\PYGZdq{}}\PYG{l+s+si}{\PYGZob{}}\PYG{l+s+s1}{\PYGZsq{}}\PYG{l+s+s1}{avg\PYGZus{}gt}\PYG{l+s+s1}{\PYGZsq{}}\PYG{l+s+si}{:}\PYG{l+s+s2}{\PYGZgt{}8}\PYG{l+s+si}{\PYGZcb{}}\PYG{l+s+s2}{\PYGZdq{}}\PYG{p}{,}
+        \PYG{l+s+sa}{f}\PYG{l+s+s2}{\PYGZdq{}}\PYG{l+s+si}{\PYGZob{}}\PYG{l+s+s1}{\PYGZsq{}}\PYG{l+s+s1}{avg\PYGZus{}pred}\PYG{l+s+s1}{\PYGZsq{}}\PYG{l+s+si}{:}\PYG{l+s+s2}{\PYGZgt{}9}\PYG{l+s+si}{\PYGZcb{}}\PYG{l+s+s2}{\PYGZdq{}}\PYG{p}{,}
+    \PYG{p}{]}
+
+    \PYG{c+c1}{\PYGZsh{} Add each metric with fixed width}
+    \PYG{k}{for} \PYG{n}{m} \PYG{o+ow}{in} \PYG{n}{metric\PYGZus{}names}\PYG{p}{:}
+        \PYG{n}{header\PYGZus{}parts}\PYG{o}{.}\PYG{n}{append}\PYG{p}{(}\PYG{l+s+sa}{f}\PYG{l+s+s2}{\PYGZdq{}}\PYG{l+s+si}{\PYGZob{}}\PYG{n}{m}\PYG{l+s+si}{:}\PYG{l+s+s2}{\PYGZgt{}10}\PYG{l+s+si}{\PYGZcb{}}\PYG{l+s+s2}{\PYGZdq{}}\PYG{p}{)}
+
+    \PYG{n}{header\PYGZus{}line} \PYG{o}{=} \PYG{l+s+s2}{\PYGZdq{}}\PYG{l+s+s2}{  }\PYG{l+s+s2}{\PYGZdq{}}\PYG{o}{.}\PYG{n}{join}\PYG{p}{(}\PYG{n}{header\PYGZus{}parts}\PYG{p}{)}
+    \PYG{n+nb}{print}\PYG{p}{(}\PYG{n}{header\PYGZus{}line}\PYG{p}{)}
+    \PYG{n+nb}{print}\PYG{p}{(}\PYG{l+s+s2}{\PYGZdq{}}\PYG{l+s+s2}{\PYGZhy{}}\PYG{l+s+s2}{\PYGZdq{}} \PYG{o}{*} \PYG{n+nb}{len}\PYG{p}{(}\PYG{n}{header\PYGZus{}line}\PYG{p}{)}\PYG{p}{)}
+
+    \PYG{c+c1}{\PYGZsh{} Table rows}
+    \PYG{k}{for} \PYG{n}{r} \PYG{o+ow}{in} \PYG{n}{rows}\PYG{p}{:}
+        \PYG{n}{base\PYGZus{}parts} \PYG{o}{=} \PYG{p}{[}
+            \PYG{l+s+sa}{f}\PYG{l+s+s2}{\PYGZdq{}}\PYG{l+s+si}{\PYGZob{}}\PYG{n}{Path}\PYG{p}{(}\PYG{n}{r}\PYG{p}{[}\PYG{l+s+s1}{\PYGZsq{}}\PYG{l+s+s1}{log}\PYG{l+s+s1}{\PYGZsq{}}\PYG{p}{]}\PYG{p}{)}\PYG{o}{.}\PYG{n}{name}\PYG{l+s+si}{:}\PYG{l+s+s2}{45}\PYG{l+s+si}{\PYGZcb{}}\PYG{l+s+s2}{\PYGZdq{}}\PYG{p}{,}
+            \PYG{l+s+sa}{f}\PYG{l+s+s2}{\PYGZdq{}}\PYG{l+s+si}{\PYGZob{}}\PYG{n+nb}{str}\PYG{p}{(}\PYG{n}{r}\PYG{p}{[}\PYG{l+s+s1}{\PYGZsq{}}\PYG{l+s+s1}{prompting\PYGZus{}method}\PYG{l+s+s1}{\PYGZsq{}}\PYG{p}{]}\PYG{p}{)}\PYG{l+s+si}{:}\PYG{l+s+s2}{\PYGZgt{}2}\PYG{l+s+si}{\PYGZcb{}}\PYG{l+s+s2}{\PYGZdq{}}\PYG{p}{,}
+            \PYG{l+s+sa}{f}\PYG{l+s+s2}{\PYGZdq{}}\PYG{l+s+si}{\PYGZob{}}\PYG{n+nb}{str}\PYG{p}{(}\PYG{n}{r}\PYG{p}{[}\PYG{l+s+s1}{\PYGZsq{}}\PYG{l+s+s1}{model\PYGZus{}config}\PYG{l+s+s1}{\PYGZsq{}}\PYG{p}{]}\PYG{p}{)}\PYG{l+s+si}{:}\PYG{l+s+s2}{\PYGZgt{}3}\PYG{l+s+si}{\PYGZcb{}}\PYG{l+s+s2}{\PYGZdq{}}\PYG{p}{,}
+            \PYG{l+s+sa}{f}\PYG{l+s+s2}{\PYGZdq{}}\PYG{l+s+si}{\PYGZob{}}\PYG{n}{r}\PYG{p}{[}\PYG{l+s+s1}{\PYGZsq{}}\PYG{l+s+s1}{num\PYGZus{}records}\PYG{l+s+s1}{\PYGZsq{}}\PYG{p}{]}\PYG{l+s+si}{:}\PYG{l+s+s2}{5d}\PYG{l+s+si}{\PYGZcb{}}\PYG{l+s+s2}{\PYGZdq{}}\PYG{p}{,}
+            \PYG{l+s+sa}{f}\PYG{l+s+s2}{\PYGZdq{}}\PYG{l+s+si}{\PYGZob{}}\PYG{n}{r}\PYG{p}{[}\PYG{l+s+s1}{\PYGZsq{}}\PYG{l+s+s1}{avg\PYGZus{}gt\PYGZus{}len}\PYG{l+s+s1}{\PYGZsq{}}\PYG{p}{]}\PYG{l+s+si}{:}\PYG{l+s+s2}{8.2f}\PYG{l+s+si}{\PYGZcb{}}\PYG{l+s+s2}{\PYGZdq{}}\PYG{p}{,}
+            \PYG{l+s+sa}{f}\PYG{l+s+s2}{\PYGZdq{}}\PYG{l+s+si}{\PYGZob{}}\PYG{n}{r}\PYG{p}{[}\PYG{l+s+s1}{\PYGZsq{}}\PYG{l+s+s1}{avg\PYGZus{}pred\PYGZus{}len}\PYG{l+s+s1}{\PYGZsq{}}\PYG{p}{]}\PYG{l+s+si}{:}\PYG{l+s+s2}{9.2f}\PYG{l+s+si}{\PYGZcb{}}\PYG{l+s+s2}{\PYGZdq{}}\PYG{p}{,}
+        \PYG{p}{]}
+
+        \PYG{n}{metric\PYGZus{}parts} \PYG{o}{=} \PYG{p}{[}\PYG{l+s+sa}{f}\PYG{l+s+s2}{\PYGZdq{}}\PYG{l+s+si}{\PYGZob{}}\PYG{n}{r}\PYG{p}{[}\PYG{n}{m}\PYG{p}{]}\PYG{l+s+si}{:}\PYG{l+s+s2}{10.2f}\PYG{l+s+si}{\PYGZcb{}}\PYG{l+s+s2}{\PYGZdq{}} \PYG{k}{for} \PYG{n}{m} \PYG{o+ow}{in} \PYG{n}{metric\PYGZus{}names}\PYG{p}{]}
+        \PYG{n}{line} \PYG{o}{=} \PYG{l+s+s2}{\PYGZdq{}}\PYG{l+s+s2}{  }\PYG{l+s+s2}{\PYGZdq{}}\PYG{o}{.}\PYG{n}{join}\PYG{p}{(}\PYG{n}{base\PYGZus{}parts} \PYG{o}{+} \PYG{n}{metric\PYGZus{}parts}\PYG{p}{)}
+        \PYG{n+nb}{print}\PYG{p}{(}\PYG{n}{line}\PYG{p}{)}
+
+
+\PYG{c+c1}{\PYGZsh{} \PYGZhy{}\PYGZhy{}\PYGZhy{}\PYGZhy{}\PYGZhy{}\PYGZhy{}\PYGZhy{}\PYGZhy{}\PYGZhy{}\PYGZhy{}\PYGZhy{}\PYGZhy{}\PYGZhy{}\PYGZhy{}\PYGZhy{}\PYGZhy{}\PYGZhy{}\PYGZhy{}\PYGZhy{}\PYGZhy{}\PYGZhy{}\PYGZhy{}\PYGZhy{}\PYGZhy{}\PYGZhy{}\PYGZhy{}\PYGZhy{}\PYGZhy{}\PYGZhy{}\PYGZhy{}\PYGZhy{}\PYGZhy{}\PYGZhy{}\PYGZhy{}\PYGZhy{}\PYGZhy{}\PYGZhy{}\PYGZhy{}\PYGZhy{}\PYGZhy{}\PYGZhy{}\PYGZhy{}\PYGZhy{}\PYGZhy{}\PYGZhy{}\PYGZhy{}\PYGZhy{}\PYGZhy{}\PYGZhy{}\PYGZhy{}\PYGZhy{}\PYGZhy{}\PYGZhy{}\PYGZhy{}\PYGZhy{}\PYGZhy{}\PYGZhy{}\PYGZhy{}\PYGZhy{}\PYGZhy{}\PYGZhy{}\PYGZhy{}\PYGZhy{}\PYGZhy{}\PYGZhy{}\PYGZhy{}\PYGZhy{}\PYGZhy{}\PYGZhy{}}
+\PYG{c+c1}{\PYGZsh{} Main}
+\PYG{c+c1}{\PYGZsh{} \PYGZhy{}\PYGZhy{}\PYGZhy{}\PYGZhy{}\PYGZhy{}\PYGZhy{}\PYGZhy{}\PYGZhy{}\PYGZhy{}\PYGZhy{}\PYGZhy{}\PYGZhy{}\PYGZhy{}\PYGZhy{}\PYGZhy{}\PYGZhy{}\PYGZhy{}\PYGZhy{}\PYGZhy{}\PYGZhy{}\PYGZhy{}\PYGZhy{}\PYGZhy{}\PYGZhy{}\PYGZhy{}\PYGZhy{}\PYGZhy{}\PYGZhy{}\PYGZhy{}\PYGZhy{}\PYGZhy{}\PYGZhy{}\PYGZhy{}\PYGZhy{}\PYGZhy{}\PYGZhy{}\PYGZhy{}\PYGZhy{}\PYGZhy{}\PYGZhy{}\PYGZhy{}\PYGZhy{}\PYGZhy{}\PYGZhy{}\PYGZhy{}\PYGZhy{}\PYGZhy{}\PYGZhy{}\PYGZhy{}\PYGZhy{}\PYGZhy{}\PYGZhy{}\PYGZhy{}\PYGZhy{}\PYGZhy{}\PYGZhy{}\PYGZhy{}\PYGZhy{}\PYGZhy{}\PYGZhy{}\PYGZhy{}\PYGZhy{}\PYGZhy{}\PYGZhy{}\PYGZhy{}\PYGZhy{}\PYGZhy{}\PYGZhy{}\PYGZhy{}}
+
+\PYG{k}{def}\PYG{+w}{ }\PYG{n+nf}{main}\PYG{p}{(}\PYG{p}{)}\PYG{p}{:}
+    \PYG{n}{parser} \PYG{o}{=} \PYG{n}{argparse}\PYG{o}{.}\PYG{n}{ArgumentParser}\PYG{p}{(}
+        \PYG{n}{description}\PYG{o}{=}\PYG{l+s+s2}{\PYGZdq{}}\PYG{l+s+s2}{Compute metrics and caption length statistics for eval logs.}\PYG{l+s+s2}{\PYGZdq{}}
+    \PYG{p}{)}
+    \PYG{n}{parser}\PYG{o}{.}\PYG{n}{add\PYGZus{}argument}\PYG{p}{(}
+        \PYG{l+s+s2}{\PYGZdq{}}\PYG{l+s+s2}{\PYGZhy{}\PYGZhy{}logs}\PYG{l+s+s2}{\PYGZdq{}}\PYG{p}{,}
+        \PYG{n}{nargs}\PYG{o}{=}\PYG{l+s+s2}{\PYGZdq{}}\PYG{l+s+s2}{+}\PYG{l+s+s2}{\PYGZdq{}}\PYG{p}{,}
+        \PYG{n}{required}\PYG{o}{=}\PYG{k+kc}{True}\PYG{p}{,}
+        \PYG{n}{help}\PYG{o}{=}\PYG{l+s+s2}{\PYGZdq{}}\PYG{l+s+s2}{Paths to eval logs (JSONL).}\PYG{l+s+s2}{\PYGZdq{}}\PYG{p}{,}
+    \PYG{p}{)}
+    \PYG{n}{parser}\PYG{o}{.}\PYG{n}{add\PYGZus{}argument}\PYG{p}{(}
+        \PYG{l+s+s2}{\PYGZdq{}}\PYG{l+s+s2}{\PYGZhy{}\PYGZhy{}out\PYGZhy{}csv}\PYG{l+s+s2}{\PYGZdq{}}\PYG{p}{,}
+        \PYG{n+nb}{type}\PYG{o}{=}\PYG{n+nb}{str}\PYG{p}{,}
+        \PYG{n}{default}\PYG{o}{=}\PYG{k+kc}{None}\PYG{p}{,}
+        \PYG{n}{help}\PYG{o}{=}\PYG{l+s+s2}{\PYGZdq{}}\PYG{l+s+s2}{Optional path to write metrics CSV (e.g., metrics/metrics\PYGZus{}subset0\PYGZus{}PT.csv).}\PYG{l+s+s2}{\PYGZdq{}}\PYG{p}{,}
+    \PYG{p}{)}
+    \PYG{n}{args} \PYG{o}{=} \PYG{n}{parser}\PYG{o}{.}\PYG{n}{parse\PYGZus{}args}\PYG{p}{(}\PYG{p}{)}
+
+    \PYG{n}{rows}\PYG{p}{:} \PYG{n}{List}\PYG{p}{[}\PYG{n}{Dict}\PYG{p}{[}\PYG{n+nb}{str}\PYG{p}{,} \PYG{n}{Any}\PYG{p}{]}\PYG{p}{]} \PYG{o}{=} \PYG{p}{[}\PYG{n}{summarize}\PYG{p}{(}\PYG{n}{Path}\PYG{p}{(}\PYG{n}{lp}\PYG{p}{)}\PYG{p}{)} \PYG{k}{for} \PYG{n}{lp} \PYG{o+ow}{in} \PYG{n}{args}\PYG{o}{.}\PYG{n}{logs}\PYG{p}{]}
+
+    \PYG{n}{print\PYGZus{}table}\PYG{p}{(}\PYG{n}{rows}\PYG{p}{)}
+
+    \PYG{k}{if} \PYG{n}{args}\PYG{o}{.}\PYG{n}{out\PYGZus{}csv} \PYG{o+ow}{is} \PYG{o+ow}{not} \PYG{k+kc}{None}\PYG{p}{:}
+        \PYG{n}{write\PYGZus{}csv}\PYG{p}{(}\PYG{n}{rows}\PYG{p}{,} \PYG{n}{Path}\PYG{p}{(}\PYG{n}{args}\PYG{o}{.}\PYG{n}{out\PYGZus{}csv}\PYG{p}{)}\PYG{p}{)}
+
+
+\PYG{k}{if} \PYG{n+nv+vm}{\PYGZus{}\PYGZus{}name\PYGZus{}\PYGZus{}} \PYG{o}{==} \PYG{l+s+s2}{\PYGZdq{}}\PYG{l+s+s2}{\PYGZus{}\PYGZus{}main\PYGZus{}\PYGZus{}}\PYG{l+s+s2}{\PYGZdq{}}\PYG{p}{:}
+    \PYG{n}{main}\PYG{p}{(}\PYG{p}{)}
+
+\end{MintedVerbatim}

@@ -1,0 +1,58 @@
+\begin{MintedVerbatim}[commandchars=\\\{\}]
+\PYG{k+kn}{import}\PYG{+w}{ }\PYG{n+nn}{argparse}
+\PYG{k+kn}{import}\PYG{+w}{ }\PYG{n+nn}{json}
+\PYG{k+kn}{from}\PYG{+w}{ }\PYG{n+nn}{pathlib}\PYG{+w}{ }\PYG{k+kn}{import} \PYG{n}{Path}
+
+
+\PYG{k}{def}\PYG{+w}{ }\PYG{n+nf}{load\PYGZus{}ids\PYGZus{}from\PYGZus{}log}\PYG{p}{(}\PYG{n}{path}\PYG{p}{:} \PYG{n}{Path}\PYG{p}{,} \PYG{n}{field}\PYG{p}{:} \PYG{n+nb}{str} \PYG{o}{=} \PYG{l+s+s2}{\PYGZdq{}}\PYG{l+s+s2}{id}\PYG{l+s+s2}{\PYGZdq{}}\PYG{p}{)}\PYG{p}{:}
+    \PYG{k}{assert} \PYG{n}{path}\PYG{o}{.}\PYG{n}{exists}\PYG{p}{(}\PYG{p}{)}\PYG{p}{,} \PYG{l+s+sa}{f}\PYG{l+s+s2}{\PYGZdq{}}\PYG{l+s+s2}{Log file not found: }\PYG{l+s+si}{\PYGZob{}}\PYG{n}{path}\PYG{l+s+si}{\PYGZcb{}}\PYG{l+s+s2}{\PYGZdq{}}
+    \PYG{n}{ids} \PYG{o}{=} \PYG{n+nb}{set}\PYG{p}{(}\PYG{p}{)}
+    \PYG{k}{with} \PYG{n}{path}\PYG{o}{.}\PYG{n}{open}\PYG{p}{(}\PYG{l+s+s2}{\PYGZdq{}}\PYG{l+s+s2}{r}\PYG{l+s+s2}{\PYGZdq{}}\PYG{p}{,} \PYG{n}{encoding}\PYG{o}{=}\PYG{l+s+s2}{\PYGZdq{}}\PYG{l+s+s2}{utf\PYGZhy{}8}\PYG{l+s+s2}{\PYGZdq{}}\PYG{p}{)} \PYG{k}{as} \PYG{n}{f}\PYG{p}{:}
+        \PYG{k}{for} \PYG{n}{line} \PYG{o+ow}{in} \PYG{n}{f}\PYG{p}{:}
+            \PYG{n}{line} \PYG{o}{=} \PYG{n}{line}\PYG{o}{.}\PYG{n}{strip}\PYG{p}{(}\PYG{p}{)}
+            \PYG{k}{if} \PYG{o+ow}{not} \PYG{n}{line}\PYG{p}{:}
+                \PYG{k}{continue}
+            \PYG{n}{rec} \PYG{o}{=} \PYG{n}{json}\PYG{o}{.}\PYG{n}{loads}\PYG{p}{(}\PYG{n}{line}\PYG{p}{)}
+            \PYG{n}{ids}\PYG{o}{.}\PYG{n}{add}\PYG{p}{(}\PYG{n+nb}{int}\PYG{p}{(}\PYG{n}{rec}\PYG{p}{[}\PYG{n}{field}\PYG{p}{]}\PYG{p}{)}\PYG{p}{)}
+    \PYG{k}{return} \PYG{n}{ids}
+
+
+\PYG{k}{def}\PYG{+w}{ }\PYG{n+nf}{main}\PYG{p}{(}\PYG{p}{)}\PYG{p}{:}
+    \PYG{n}{parser} \PYG{o}{=} \PYG{n}{argparse}\PYG{o}{.}\PYG{n}{ArgumentParser}\PYG{p}{(}
+        \PYG{n}{description}\PYG{o}{=}\PYG{l+s+s2}{\PYGZdq{}}\PYG{l+s+s2}{Check whether eval log contains exemplar IDs.}\PYG{l+s+s2}{\PYGZdq{}}
+    \PYG{p}{)}
+    \PYG{n}{parser}\PYG{o}{.}\PYG{n}{add\PYGZus{}argument}\PYG{p}{(}
+        \PYG{l+s+s2}{\PYGZdq{}}\PYG{l+s+s2}{\PYGZhy{}\PYGZhy{}eval\PYGZhy{}log}\PYG{l+s+s2}{\PYGZdq{}}\PYG{p}{,}
+        \PYG{n}{required}\PYG{o}{=}\PYG{k+kc}{True}\PYG{p}{,}
+        \PYG{n}{help}\PYG{o}{=}\PYG{l+s+s2}{\PYGZdq{}}\PYG{l+s+s2}{Path to eval\PYGZus{}*.jsonl file (e.g., logs/eval\PYGZus{}subset0\PYGZus{}PT\PYGZus{}D\PYGZus{}FS.jsonl).}\PYG{l+s+s2}{\PYGZdq{}}\PYG{p}{,}
+    \PYG{p}{)}
+    \PYG{n}{parser}\PYG{o}{.}\PYG{n}{add\PYGZus{}argument}\PYG{p}{(}
+        \PYG{l+s+s2}{\PYGZdq{}}\PYG{l+s+s2}{\PYGZhy{}\PYGZhy{}exemplar\PYGZhy{}log}\PYG{l+s+s2}{\PYGZdq{}}\PYG{p}{,}
+        \PYG{n}{required}\PYG{o}{=}\PYG{k+kc}{True}\PYG{p}{,}
+        \PYG{n}{help}\PYG{o}{=}\PYG{p}{(}
+            \PYG{l+s+s2}{\PYGZdq{}}\PYG{l+s+s2}{Path to *\PYGZus{}exemplars.jsonl file }\PYG{l+s+s2}{\PYGZdq{}}
+            \PYG{l+s+s2}{\PYGZdq{}}\PYG{l+s+s2}{(e.g., logs/eval\PYGZus{}subset0\PYGZus{}PT\PYGZus{}D\PYGZus{}FS\PYGZus{}exemplars.jsonl).}\PYG{l+s+s2}{\PYGZdq{}}
+        \PYG{p}{)}\PYG{p}{,}
+    \PYG{p}{)}
+    \PYG{n}{args} \PYG{o}{=} \PYG{n}{parser}\PYG{o}{.}\PYG{n}{parse\PYGZus{}args}\PYG{p}{(}\PYG{p}{)}
+
+    \PYG{n}{eval\PYGZus{}log\PYGZus{}path} \PYG{o}{=} \PYG{n}{Path}\PYG{p}{(}\PYG{n}{args}\PYG{o}{.}\PYG{n}{eval\PYGZus{}log}\PYG{p}{)}
+    \PYG{n}{exemplar\PYGZus{}log\PYGZus{}path} \PYG{o}{=} \PYG{n}{Path}\PYG{p}{(}\PYG{n}{args}\PYG{o}{.}\PYG{n}{exemplar\PYGZus{}log}\PYG{p}{)}
+
+    \PYG{n}{eval\PYGZus{}ids} \PYG{o}{=} \PYG{n}{load\PYGZus{}ids\PYGZus{}from\PYGZus{}log}\PYG{p}{(}\PYG{n}{eval\PYGZus{}log\PYGZus{}path}\PYG{p}{,} \PYG{n}{field}\PYG{o}{=}\PYG{l+s+s2}{\PYGZdq{}}\PYG{l+s+s2}{id}\PYG{l+s+s2}{\PYGZdq{}}\PYG{p}{)}
+    \PYG{n}{exemplar\PYGZus{}ids} \PYG{o}{=} \PYG{n}{load\PYGZus{}ids\PYGZus{}from\PYGZus{}log}\PYG{p}{(}\PYG{n}{exemplar\PYGZus{}log\PYGZus{}path}\PYG{p}{,} \PYG{n}{field}\PYG{o}{=}\PYG{l+s+s2}{\PYGZdq{}}\PYG{l+s+s2}{id}\PYG{l+s+s2}{\PYGZdq{}}\PYG{p}{)}
+
+    \PYG{n+nb}{print}\PYG{p}{(}\PYG{l+s+sa}{f}\PYG{l+s+s2}{\PYGZdq{}}\PYG{l+s+s2}{[INFO] Exemplar IDs      : }\PYG{l+s+si}{\PYGZob{}}\PYG{n+nb}{sorted}\PYG{p}{(}\PYG{n}{exemplar\PYGZus{}ids}\PYG{p}{)}\PYG{l+s+si}{\PYGZcb{}}\PYG{l+s+s2}{\PYGZdq{}}\PYG{p}{)}
+    \PYG{n+nb}{print}\PYG{p}{(}\PYG{l+s+sa}{f}\PYG{l+s+s2}{\PYGZdq{}}\PYG{l+s+s2}{[INFO] Num exemplar IDs  : }\PYG{l+s+si}{\PYGZob{}}\PYG{n+nb}{len}\PYG{p}{(}\PYG{n}{exemplar\PYGZus{}ids}\PYG{p}{)}\PYG{l+s+si}{\PYGZcb{}}\PYG{l+s+s2}{\PYGZdq{}}\PYG{p}{)}
+    \PYG{n+nb}{print}\PYG{p}{(}\PYG{l+s+sa}{f}\PYG{l+s+s2}{\PYGZdq{}}\PYG{l+s+s2}{[INFO] Num evaluated IDs : }\PYG{l+s+si}{\PYGZob{}}\PYG{n+nb}{len}\PYG{p}{(}\PYG{n}{eval\PYGZus{}ids}\PYG{p}{)}\PYG{l+s+si}{\PYGZcb{}}\PYG{l+s+s2}{\PYGZdq{}}\PYG{p}{)}
+
+    \PYG{n}{overlap} \PYG{o}{=} \PYG{n}{exemplar\PYGZus{}ids} \PYG{o}{\PYGZam{}} \PYG{n}{eval\PYGZus{}ids}
+    \PYG{k}{if} \PYG{n}{overlap}\PYG{p}{:}
+        \PYG{n+nb}{print}\PYG{p}{(}\PYG{l+s+sa}{f}\PYG{l+s+s2}{\PYGZdq{}}\PYG{l+s+s2}{[WARN] Overlap found! Evaluated exemplar IDs: }\PYG{l+s+si}{\PYGZob{}}\PYG{n+nb}{sorted}\PYG{p}{(}\PYG{n}{overlap}\PYG{p}{)}\PYG{l+s+si}{\PYGZcb{}}\PYG{l+s+s2}{\PYGZdq{}}\PYG{p}{)}
+    \PYG{k}{else}\PYG{p}{:}
+        \PYG{n+nb}{print}\PYG{p}{(}\PYG{l+s+s2}{\PYGZdq{}}\PYG{l+s+s2}{[OK] No exemplar IDs appear in the eval log.}\PYG{l+s+s2}{\PYGZdq{}}\PYG{p}{)}
+
+
+\PYG{k}{if} \PYG{n+nv+vm}{\PYGZus{}\PYGZus{}name\PYGZus{}\PYGZus{}} \PYG{o}{==} \PYG{l+s+s2}{\PYGZdq{}}\PYG{l+s+s2}{\PYGZus{}\PYGZus{}main\PYGZus{}\PYGZus{}}\PYG{l+s+s2}{\PYGZdq{}}\PYG{p}{:}
+    \PYG{n}{main}\PYG{p}{(}\PYG{p}{)}
+\end{MintedVerbatim}
