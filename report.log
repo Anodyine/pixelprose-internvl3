@@ -1,4 +1,4 @@
-This is pdfTeX, Version 3.141592653-2.6-1.40.27 (TeX Live 2026/dev/Arch Linux) (preloaded format=pdflatex 2025.11.10)  29 NOV 2025 18:53
+This is pdfTeX, Version 3.141592653-2.6-1.40.27 (TeX Live 2026/dev/Arch Linux) (preloaded format=pdflatex 2025.11.10)  2 DEC 2025 15:32
 entering extended mode
  restricted \write18 enabled.
  file:line:error style messages enabled.
@@ -255,38 +255,38 @@ Package caption Info: End \AtBeginDocument code.
 {/var/lib/texmf/fonts/map/pdftex/updmap/pdftex.map}]
 
 [2{/usr/share/texmf-dist/fonts/enc/dvips/cm-super/cm-super-ts1.enc}]
-LaTeX Font Info:    Trying to load font information for OMS+cmtt on input line 118.
-LaTeX Font Info:    No file OMScmtt.fd. on input line 118.
+LaTeX Font Info:    Trying to load font information for OMS+cmtt on input line 135.
+LaTeX Font Info:    No file OMScmtt.fd. on input line 135.
 
 
 LaTeX Font Warning: Font shape `OMS/cmtt/m/n' undefined
 (Font)              using `OMS/cmsy/m/n' instead
-(Font)              for symbol `textbraceleft' on input line 118.
+(Font)              for symbol `textbraceleft' on input line 135.
 
 
-Overfull \hbox (55.18166pt too wide) in paragraph at lines 152--156
+Overfull \hbox (55.18166pt too wide) in paragraph at lines 169--173
 \OT1/cmr/m/n/10 LoRA fine-tuning is im-ple-mented in \OT1/cmtt/m/n/10 src/train[]lora.py\OT1/cmr/m/n/10 . The script loads the full \OT1/cmtt/m/n/10 OpenGVLab/InternVL3[]5-2B-Instruct
  []
 
 
-Overfull \hbox (15.26216pt too wide) in paragraph at lines 167--170
+Overfull \hbox (15.26216pt too wide) in paragraph at lines 184--187
 \OT1/cmr/m/n/10 Pix-el-Prose cap-tion. It uses the same de-tailed prompt as the PT/FT eval-u-a-tion set-ting (\OT1/cmtt/m/n/10 prompts/detailed.txt\OT1/cmr/m/n/10 ): 
  []
 
 
 
 [3]
-Overfull \hbox (53.9504pt too wide) in paragraph at lines 201--207
+Overfull \hbox (53.9504pt too wide) in paragraph at lines 218--224
 []\OT1/cmr/m/n/10 By de-fault, the adapter weights are saved un-der \OT1/cmtt/m/n/10 checkpoints/internvl3[]5[]2b[]lora[]pixelprose/subset2[]r32[]a64/\OT1/cmr/m/n/10 .
  []
 
 
-Overfull \hbox (6.71817pt too wide) in paragraph at lines 201--207
+Overfull \hbox (6.71817pt too wide) in paragraph at lines 218--224
 \OT1/cmr/m/n/10 (\OT1/cmtt/m/n/10 subset2[]r32[]a64[]train[]size[]20000\OT1/cmr/m/n/10 ). The eval-u-a-tion script \OT1/cmtt/m/n/10 src/eval[]captions.py \OT1/cmr/m/n/10 loads the LoRA adapter
  []
 
 
-Overfull \hbox (36.60966pt too wide) in paragraph at lines 237--244
+Overfull \hbox (36.60966pt too wide) in paragraph at lines 254--261
 \OT1/cmr/m/n/10 are ex-cluded from the eval-u-a-tion pool and ver-ify this with a ded-i-cated script (\OT1/cmtt/m/n/10 scripts/check[]exemplar[]leakage.py\OT1/cmr/m/n/10 ). 
  []
 
@@ -298,15 +298,15 @@ Overfull \hbox (36.60966pt too wide) in paragraph at lines 237--244
 <data/pixelprose_subset2/images/000000.jpg, id=31, 602.25pt x 602.25pt>
 File: data/pixelprose_subset2/images/000000.jpg Graphic file (type jpg)
 <use data/pixelprose_subset2/images/000000.jpg>
-Package pdftex.def Info: data/pixelprose_subset2/images/000000.jpg  used on input line 268.
+Package pdftex.def Info: data/pixelprose_subset2/images/000000.jpg  used on input line 285.
 (pdftex.def)             Requested size: 234.8775pt x 234.87654pt.
 
-Underfull \hbox (badness 10000) in paragraph at lines 281--281
+Underfull \hbox (badness 10000) in paragraph at lines 298--298
 
  []
 
 
-Underfull \hbox (badness 10000) in paragraph at lines 281--281
+Underfull \hbox (badness 10000) in paragraph at lines 298--298
 
  []
 
@@ -316,15 +316,15 @@ Underfull \hbox (badness 10000) in paragraph at lines 281--281
 <data/pixelprose_subset2/images/000001.jpg, id=35, 422.57875pt x 501.875pt>
 File: data/pixelprose_subset2/images/000001.jpg Graphic file (type jpg)
 <use data/pixelprose_subset2/images/000001.jpg>
-Package pdftex.def Info: data/pixelprose_subset2/images/000001.jpg  used on input line 293.
+Package pdftex.def Info: data/pixelprose_subset2/images/000001.jpg  used on input line 310.
 (pdftex.def)             Requested size: 234.8775pt x 278.95744pt.
 
-Underfull \hbox (badness 10000) in paragraph at lines 308--308
+Underfull \hbox (badness 10000) in paragraph at lines 325--325
 
  []
 
 
-Underfull \hbox (badness 10000) in paragraph at lines 308--308
+Underfull \hbox (badness 10000) in paragraph at lines 325--325
 
  []
 
@@ -334,27 +334,27 @@ Underfull \hbox (badness 10000) in paragraph at lines 308--308
 <data/pixelprose_subset2/images/000002.jpg, id=40, 236.885pt x 165.61874pt>
 File: data/pixelprose_subset2/images/000002.jpg Graphic file (type jpg)
 <use data/pixelprose_subset2/images/000002.jpg>
-Package pdftex.def Info: data/pixelprose_subset2/images/000002.jpg  used on input line 320.
+Package pdftex.def Info: data/pixelprose_subset2/images/000002.jpg  used on input line 337.
 (pdftex.def)             Requested size: 234.8775pt x 164.22083pt.
 
-Underfull \hbox (badness 10000) in paragraph at lines 333--333
+Underfull \hbox (badness 10000) in paragraph at lines 350--350
 
  []
 
 
-Underfull \hbox (badness 10000) in paragraph at lines 333--333
+Underfull \hbox (badness 10000) in paragraph at lines 350--350
 
  []
 
 
 
 [8 <./data/pixelprose_subset2/images/000002.jpg>]
-Overfull \hbox (27.44048pt too wide) in paragraph at lines 342--344
+Overfull \hbox (27.44048pt too wide) in paragraph at lines 359--361
 \OT1/cmr/m/n/10 For each con-fig-u-ra-tion, the eval-u-a-tion script runs In-ternVL on up to 500 held-out im-ages from \OT1/cmtt/m/n/10 pixelprose[]subset2\OT1/cmr/m/n/10 ,
  []
 
 
-Overfull \hbox (35.08293pt too wide) in paragraph at lines 358--361
+Overfull \hbox (35.08293pt too wide) in paragraph at lines 375--378
 []\OT1/cmr/m/n/10 The main sum-mary for sub-set 2 and the PT/FT con-fig-u-ra-tions is stored in \OT1/cmtt/m/n/10 metrics/metrics[]subset2[]PT[]FT.csv\OT1/cmr/m/n/10 .
  []
 
@@ -369,30 +369,30 @@ Overfull \hbox (35.08293pt too wide) in paragraph at lines 358--361
 <data/pixelprose_subset2/images/000003.jpg, id=47, 58.2175pt x 64.24pt>
 File: data/pixelprose_subset2/images/000003.jpg Graphic file (type jpg)
 <use data/pixelprose_subset2/images/000003.jpg>
-Package pdftex.def Info: data/pixelprose_subset2/images/000003.jpg  used on input line 428.
+Package pdftex.def Info: data/pixelprose_subset2/images/000003.jpg  used on input line 445.
 (pdftex.def)             Requested size: 187.89914pt x 207.38754pt.
 
-Underfull \hbox (badness 10000) in paragraph at lines 451--451
+Underfull \hbox (badness 10000) in paragraph at lines 468--468
 
  []
 
 
-Underfull \hbox (badness 10000) in paragraph at lines 451--451
+Underfull \hbox (badness 10000) in paragraph at lines 468--468
 
  []
 
 
-Underfull \hbox (badness 10000) in paragraph at lines 451--451
+Underfull \hbox (badness 10000) in paragraph at lines 468--468
 
  []
 
 
-Underfull \hbox (badness 10000) in paragraph at lines 451--451
+Underfull \hbox (badness 10000) in paragraph at lines 468--468
 
  []
 
 
-Underfull \hbox (badness 10000) in paragraph at lines 451--451
+Underfull \hbox (badness 10000) in paragraph at lines 468--468
 
  []
 
@@ -404,30 +404,30 @@ Underfull \hbox (badness 10000) in paragraph at lines 451--451
 <data/pixelprose_subset2/images/000004.jpg, id=55, 325.215pt x 325.215pt>
 File: data/pixelprose_subset2/images/000004.jpg Graphic file (type jpg)
 <use data/pixelprose_subset2/images/000004.jpg>
-Package pdftex.def Info: data/pixelprose_subset2/images/000004.jpg  used on input line 463.
+Package pdftex.def Info: data/pixelprose_subset2/images/000004.jpg  used on input line 480.
 (pdftex.def)             Requested size: 187.89914pt x 187.90529pt.
 
-Underfull \hbox (badness 10000) in paragraph at lines 484--484
+Underfull \hbox (badness 10000) in paragraph at lines 501--501
 
  []
 
 
-Underfull \hbox (badness 10000) in paragraph at lines 484--484
+Underfull \hbox (badness 10000) in paragraph at lines 501--501
 
  []
 
 
-Underfull \hbox (badness 10000) in paragraph at lines 484--484
+Underfull \hbox (badness 10000) in paragraph at lines 501--501
 
  []
 
 
-Underfull \hbox (badness 10000) in paragraph at lines 484--484
+Underfull \hbox (badness 10000) in paragraph at lines 501--501
 
  []
 
 
-Underfull \hbox (badness 10000) in paragraph at lines 484--484
+Underfull \hbox (badness 10000) in paragraph at lines 501--501
 
  []
 
@@ -437,35 +437,35 @@ Underfull \hbox (badness 10000) in paragraph at lines 484--484
 <data/pixelprose_subset2/images/000005.jpg, id=59, 803.0pt x 803.0pt>
 File: data/pixelprose_subset2/images/000005.jpg Graphic file (type jpg)
 <use data/pixelprose_subset2/images/000005.jpg>
-Package pdftex.def Info: data/pixelprose_subset2/images/000005.jpg  used on input line 496.
+Package pdftex.def Info: data/pixelprose_subset2/images/000005.jpg  used on input line 513.
 (pdftex.def)             Requested size: 187.89914pt x 187.89635pt.
 
-Underfull \hbox (badness 10000) in paragraph at lines 517--517
+Underfull \hbox (badness 10000) in paragraph at lines 534--534
 
  []
 
 
-Underfull \hbox (badness 10000) in paragraph at lines 517--517
+Underfull \hbox (badness 10000) in paragraph at lines 534--534
 
  []
 
 
-Underfull \hbox (badness 10000) in paragraph at lines 517--517
+Underfull \hbox (badness 10000) in paragraph at lines 534--534
 
  []
 
 
-Underfull \hbox (badness 10000) in paragraph at lines 517--517
+Underfull \hbox (badness 10000) in paragraph at lines 534--534
 
  []
 
 
-Underfull \hbox (badness 10000) in paragraph at lines 517--517
+Underfull \hbox (badness 10000) in paragraph at lines 534--534
 
  []
 
 
-LaTeX Warning: Float too large for page by 17.3285pt on input line 521.
+LaTeX Warning: Float too large for page by 17.3285pt on input line 538.
 
 
 
@@ -473,35 +473,35 @@ LaTeX Warning: Float too large for page by 17.3285pt on input line 521.
 <data/pixelprose_subset2/images/000006.jpg, id=64, 660.4675pt x 1104.125pt>
 File: data/pixelprose_subset2/images/000006.jpg Graphic file (type jpg)
 <use data/pixelprose_subset2/images/000006.jpg>
-Package pdftex.def Info: data/pixelprose_subset2/images/000006.jpg  used on input line 529.
+Package pdftex.def Info: data/pixelprose_subset2/images/000006.jpg  used on input line 546.
 (pdftex.def)             Requested size: 140.92793pt x 235.5964pt.
 
-Underfull \hbox (badness 10000) in paragraph at lines 552--552
+Underfull \hbox (badness 10000) in paragraph at lines 569--569
 
  []
 
 
-Underfull \hbox (badness 10000) in paragraph at lines 552--552
+Underfull \hbox (badness 10000) in paragraph at lines 569--569
 
  []
 
 
-Underfull \hbox (badness 10000) in paragraph at lines 552--552
+Underfull \hbox (badness 10000) in paragraph at lines 569--569
 
  []
 
 
-Underfull \hbox (badness 10000) in paragraph at lines 552--552
+Underfull \hbox (badness 10000) in paragraph at lines 569--569
 
  []
 
 
-Underfull \hbox (badness 10000) in paragraph at lines 552--552
+Underfull \hbox (badness 10000) in paragraph at lines 569--569
 
  []
 
 
-LaTeX Warning: Float too large for page by 24.34172pt on input line 556.
+LaTeX Warning: Float too large for page by 24.34172pt on input line 573.
 
 
 
@@ -509,50 +509,50 @@ LaTeX Warning: Float too large for page by 24.34172pt on input line 556.
 <data/pixelprose_subset2/images/000007.jpg, id=71, 3035.34pt x 4047.12pt>
 File: data/pixelprose_subset2/images/000007.jpg Graphic file (type jpg)
 <use data/pixelprose_subset2/images/000007.jpg>
-Package pdftex.def Info: data/pixelprose_subset2/images/000007.jpg  used on input line 564.
+Package pdftex.def Info: data/pixelprose_subset2/images/000007.jpg  used on input line 581.
 (pdftex.def)             Requested size: 187.89914pt x 250.47421pt.
 
-Underfull \hbox (badness 10000) in paragraph at lines 585--585
+Underfull \hbox (badness 10000) in paragraph at lines 602--602
 
  []
 
 
-Underfull \hbox (badness 10000) in paragraph at lines 585--585
+Underfull \hbox (badness 10000) in paragraph at lines 602--602
 
  []
 
 
-Underfull \hbox (badness 10000) in paragraph at lines 585--585
+Underfull \hbox (badness 10000) in paragraph at lines 602--602
 
  []
 
 
-Underfull \hbox (badness 10000) in paragraph at lines 585--585
+Underfull \hbox (badness 10000) in paragraph at lines 602--602
 
  []
 
 
-Underfull \hbox (badness 10000) in paragraph at lines 585--585
+Underfull \hbox (badness 10000) in paragraph at lines 602--602
 
  []
 
 
-LaTeX Warning: Float too large for page by 19.46959pt on input line 589.
+LaTeX Warning: Float too large for page by 19.46959pt on input line 606.
 
 
 
 [15 <./data/pixelprose_subset2/images/000007.jpg>]
 File: data/pixelprose_subset2/images/000003.jpg Graphic file (type jpg)
 <use data/pixelprose_subset2/images/000003.jpg>
-Package pdftex.def Info: data/pixelprose_subset2/images/000003.jpg  used on input line 597.
+Package pdftex.def Info: data/pixelprose_subset2/images/000003.jpg  used on input line 614.
 (pdftex.def)             Requested size: 234.8775pt x 259.23836pt.
 
-Underfull \hbox (badness 10000) in paragraph at lines 618--618
+Underfull \hbox (badness 10000) in paragraph at lines 635--635
 
  []
 
 
-Underfull \hbox (badness 10000) in paragraph at lines 618--618
+Underfull \hbox (badness 10000) in paragraph at lines 635--635
 
  []
 
@@ -567,9 +567,9 @@ Underfull \hbox (badness 10000) in paragraph at lines 618--618
 
 
 
-] (./report.bbl
+]
 
-[18])
+[18] (./report.bbl)
 
 [19] (./report.aux)
  ***********
@@ -590,7 +590,7 @@ Here is how much of TeX's memory you used:
  1141 hyphenation exceptions out of 8191
  57i,9n,65p,1008b,346s stack positions out of 10000i,1000n,20000p,200000b,200000s
 </usr/share/texmf-dist/fonts/type1/public/amsfonts/cm/cmbx10.pfb></usr/share/texmf-dist/fonts/type1/public/amsfonts/cm/cmbx12.pfb></usr/share/texmf-dist/fonts/type1/public/amsfonts/cm/cmbx8.pfb></usr/share/texmf-dist/fonts/type1/public/amsfonts/cm/cmbx9.pfb></usr/share/texmf-dist/fonts/type1/public/amsfonts/cm/cmmi10.pfb></usr/share/texmf-dist/fonts/type1/public/amsfonts/cm/cmr10.pfb></usr/share/texmf-dist/fonts/type1/public/amsfonts/cm/cmr12.pfb></usr/share/texmf-dist/fonts/type1/public/amsfonts/cm/cmr17.pfb></usr/share/texmf-dist/fonts/type1/public/amsfonts/cm/cmr7.pfb></usr/share/texmf-dist/fonts/type1/public/amsfonts/cm/cmr8.pfb></usr/share/texmf-dist/fonts/type1/public/amsfonts/cm/cmr9.pfb></usr/share/texmf-dist/fonts/type1/public/amsfonts/cm/cmsy10.pfb></usr/share/texmf-dist/fonts/type1/public/amsfonts/cm/cmti10.pfb></usr/share/texmf-dist/fonts/type1/public/amsfonts/cm/cmti8.pfb></usr/share/texmf-dist/fonts/type1/public/amsfonts/cm/cmti9.pfb></usr/share/texmf-dist/fonts/type1/public/amsfonts/cm/cmtt10.pfb></usr/share/texmf-dist/fonts/type1/public/cm-super/sfrm0900.pfb></usr/share/texmf-dist/fonts/type1/public/cm-super/sfrm1000.pfb>
-Output written on report.pdf (19 pages, 1860917 bytes).
+Output written on report.pdf (19 pages, 1862079 bytes).
 PDF statistics:
  165 PDF objects out of 1000 (max. 8388607)
  99 compressed objects within 1 object stream

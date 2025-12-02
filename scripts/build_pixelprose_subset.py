@@ -27,7 +27,7 @@ def download_image(url: str, out_path: Path, timeout: float = 10.0) -> bool:
 
 def main(dataset_index: int, num_samples: int):
     """
-    Build a PixelProse subset with *exactly* num_samples successfully downloaded images,
+    Build a PixelProse subset with num_samples successfully downloaded images,
     if possible.
 
     Args:
@@ -63,7 +63,7 @@ def main(dataset_index: int, num_samples: int):
     kept = 0
     tried = 0
 
-    # Progress bar now tracks *kept* images, not rows scanned
+    # Progress bar tracks kept images
     pbar = tqdm(total=num_samples, desc="Collected images", unit="img")
 
     with meta_path.open("w", encoding="utf-8") as f:

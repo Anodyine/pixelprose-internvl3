@@ -185,6 +185,9 @@ def evaluate_prompting_method(
     )
     print(f"[INFO] [{prompt_tag}] Writing outputs to: {out_path}")
     
+    # NOTE: the config below has been modified since the final run. I am demonstrating what I would do to 
+    # reduce repetition here in practice. However, since I want a fair comparison between PT and FT, the final 
+    # run ran without repetition penalty or no_repeat_ngram_size
     generation_config = dict(
         max_new_tokens=200,
         do_sample=False,             # keep deterministic for eval
@@ -386,7 +389,7 @@ def main():
     print(f"[INFO] Using {len(eval_records)} eval records for all prompting styles.")
 
     # 7) Run all prompting methods in sequence on the SAME eval set
-    for prompting_method in (2,):
+    for prompting_method in (0,1,2):
         print(f"\n[INFO] Starting evaluation for prompting_method={prompting_method}...")
         evaluate_prompting_method(
             prompting_method=prompting_method,

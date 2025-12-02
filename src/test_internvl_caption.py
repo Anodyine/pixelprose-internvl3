@@ -1,5 +1,5 @@
 # src/test_internvl_caption.py
-
+# load_image is used in other files
 import math
 from pathlib import Path
 

@@ -47,7 +47,7 @@ def compute_bleu(preds: List[str], refs: List[str]) -> float:
 def compute_meteor(preds: List[str], refs: List[str]) -> float:
     """
     Corpus METEOR as the average of sentence-level METEOR scores.
-    Returns score on 0–100 scale for consistency with BLEU.
+    Returns score on 0-100 scale for consistency with BLEU.
     """
     if not preds:
         return 0.0
@@ -117,7 +117,7 @@ def get_bertscore_metric():
 def compute_bertscore(preds: List[str], refs: List[str]) -> float:
     """
     Corpus BERTScore (F1), averaged over all examples.
-    Returns score on 0–100 scale for consistency with BLEU/METEOR/CIDEr.
+    Returns score on 0-100 scale for consistency with BLEU/METEOR/CIDEr.
     """
     if not preds:
         return 0.0

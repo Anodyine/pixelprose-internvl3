@@ -1,14 +1,10 @@
 # src/train_lora.py
 #
-# Current scope:
 #   - Data loading and fixed-size split.
 #   - Dataset that loads images + text.
 #   - DataLoader + collate_fn that batches variable-length text and variable
 #     numbers of image patches.
-#
-# Next steps (later):
-#   - Wire in the model + LoRA.
-#   - Implement the actual training loop.
+
 
 import argparse
 import json
@@ -94,8 +90,7 @@ class PixelProseLoraDataset(Dataset):
     Minimal dataset for LoRA:
 
     - One image per example (same load_image as eval).
-    - Text is "<image>\\n" + detailed_prompt + "\\n" + caption.
-    - Labels are the same as input_ids (no prompt masking yet).
+    - Labels are the same as input_ids.
     """
 
     def __init__(
@@ -110,7 +105,7 @@ class PixelProseLoraDataset(Dataset):
         self.tokenizer = tokenizer
         self.max_length = max_length
 
-        # Use the same detailed prompt you already use for prompting_method=1
+        # Use the same detailed prompt I already use for prompting_method=1
         self.prompt_text = load_prompt(1)  # 1 = detailed.txt
         print(f"[INFO] Loaded detailed prompt for training. First line:")
         print(f"       {self.prompt_text.splitlines()[0] if self.prompt_text else ''}")
@@ -144,7 +139,7 @@ class PixelProseLoraDataset(Dataset):
         return {
             "id": int(rec["id"]),
             "image_file": img_rel,
-            "pixel_values": pixel_values,      # [num_patches, 3, H, W]
+            "pixel_values": pixel_values,
             "input_ids": input_ids,
             "attention_mask": attention_mask,
             "labels": labels,
@@ -199,7 +194,7 @@ def make_collate_fn(pad_token_id: int):
         num_patches_list = [pv.size(0) for pv in pixel_values_list]
 
         # Concatenate along patch dimension
-        pixel_values_all = torch.cat(pixel_values_list, dim=0)     # [sum_patches, 3, H, W]
+        pixel_values_all = torch.cat(pixel_values_list, dim=0)
 
         return {
             "ids": ids_list,
@@ -258,7 +253,7 @@ def build_mm_inputs_for_batch(
     )
     input_ids = enc["input_ids"].to(device)
     attention_mask = enc["attention_mask"].to(device)
-    labels = input_ids.clone()  # standard causal LM; we can mask later if desired
+    labels = input_ids.clone() 
 
     return input_ids, attention_mask, labels
 
@@ -363,7 +358,7 @@ def main() -> None:
     print(f"[INFO] Train records (requested {args.train_size}): {len(train_records)}")
     print(f"[INFO] Val records   (requested {args.val_size}):  {len(val_records)}")
 
-    # For sanity, show id ranges
+    #  show id ranges
     if train_records:
         print(
             f"[DEBUG] Train id range: "
@@ -412,7 +407,6 @@ def main() -> None:
         pin_memory=False,
     )
 
-    # Optional: quick sanity batch
     print("[INFO] Fetching one batch from DataLoader for sanity check...")
     debug_batch = next(iter(train_loader))
 
@@ -437,7 +431,7 @@ def main() -> None:
     model = AutoModel.from_pretrained(
         model_id,
         torch_dtype=torch.bfloat16,
-        low_cpu_mem_usage=True,   # optional
+        low_cpu_mem_usage=True,
         use_flash_attn=False,
         trust_remote_code=True,
         device_map=None,          # SINGLE GPU

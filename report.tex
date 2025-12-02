@@ -67,16 +67,16 @@ small trainable low-rank matrices into existing attention and
 MLP projection layers, allowing the model to specialize to 
 PixelProse-style captions without modifying or adding full layers. 
 The second strategy is multimodal 
-few-shot prompting: I prepend exemplar image--caption pairs to the 
+few-shot prompting: I prepend exemplar image-caption pairs to the 
 model's input so that it can condition on several 
-high-quality examples before describing a new query image.
+high quality examples before describing a new query image.
 
 The original project proposal envisioned training on 
 millions of PixelProse examples with multi-GPU data-parallel 
 fine-tuning and then running a large ablation over LoRA ranks, 
 frozen-layer depths, and several few-shot prompting schemes. 
-In practice, I was constrained to single-GPU training and a much s
-maller subset of the dataset, and I evaluated each configuration on 
+In practice, I was constrained to single-GPU training and a much 
+smaller subset of the dataset, and I evaluated each configuration on 
 500 held-out images instead of the larger planned study. 
 Despite these limitations, the experiment still answers three central 
 questions:
@@ -92,7 +92,10 @@ questions:
 
 \subsection{Dense Captioning and PixelProse}
 
-Traditional captioning datasets such as MSCOCO emphasize short alt-text style captions that summarize only the most salient objects in an image. In contrast, PixelProse~\cite{singla2024pixelsproselargedataset} introduces more than 16 million image--caption pairs featuring long, dense, paragraph-level descriptions intended to capture fine-grained attributes, relationships, and scene structure. Each record also includes metadata such as aesthetic scores and watermark probabilities, enabling quality-based filtering and analysis. Because PixelProse captions are significantly longer and more detailed than standard alt-text, the dataset provides a natural benchmark for studying models that aim to generate richly descriptive prose.
+Traditional captioning datasets such as MSCOCO emphasize short alt-text style captions that summarize only the most salient objects 
+in an image. In contrast, PixelProse~\cite{singla2024pixelsproselargedataset} introduces more than 16 million image-caption
+ pairs featuring long, dense, paragraph-level descriptions intended to capture fine-grained attributes, relationships, and 
+ scene structure. Each record also includes metadata such as aesthetic scores and watermark probabilities, enabling quality-based filtering and analysis. Because PixelProse captions are significantly longer and more detailed than standard alt-text, the dataset provides a natural benchmark for studying models that aim to generate richly descriptive prose.
 
 \subsection{InternVL 3.5}
 
@@ -104,16 +107,30 @@ Low-Rank Adaptation (LoRA)~\cite{hu2021loralowrankadaptationlarge} is a paramete
 
 \subsection{Few-Shot Prompting for Vision--Language Models}
 
-Few-shot prompting has long been used in large language models by providing example input--output pairs directly within the prompt. This idea extends naturally to multimodal models by including paired image--caption exemplars. A landmark demonstration is Flamingo~\cite{alayrac2022flamingovisuallanguagemodel}, which showed that large pretrained vision--language models can achieve strong few-shot performance on captioning, VQA, and multimodal reasoning tasks simply by concatenating exemplar image--caption pairs with the query input, without any parameter updates. Such prompting enables rapid style conditioning—such as inducing longer, more descriptive captioning behavior—but increases inference-time VRAM usage because all exemplar images must be embedded and stored in the attention context.
+Few-shot prompting been used for years in large language models by providing example input-output pairs 
+directly within the prompt. This idea extends naturally to multimodal models by including paired 
+image-caption exemplars.  Flamingo~\cite{alayrac2022flamingovisuallanguagemodel} showed that large 
+pretrained vision-language models can achieve strong few-shot performance on captioning, 
+VQA, and multimodal reasoning tasks simply by concatenating exemplar image-caption 
+pairs with the query input, without any parameter updates. Such prompting enables rapid 
+style conditioning, such as inducing longer, more descriptive captioning behavior, but 
+increases inference time VRAM usage because all exemplar images 
+must be embedded and stored in the attention context.
 
-In this project, we evaluate whether multimodal few-shot prompting can effectively guide InternVL toward producing PixelProse-style long-form captions and compare its benefits and costs to those of LoRA fine-tuning.
+In this project, we evaluate whether multimodal few-shot prompting can 
+effectively guide InternVL toward producing PixelProse-style 
+long-form captions and compare its benefits and costs to those of LoRA fine-tuning.
 
 \section{Method}
 \label{sec:method}
 
 \subsection{Dataset and Subset Construction}
 
-The full PixelProse dataset is too large to train on exhaustively within a single semester project, so I constructed several smaller subsets using a dedicated script (\texttt{scripts/build\_pixelprose\_subset.py}). The script downloads images and metadata from the Hugging Face PixelProse dataset, shuffles with a fixed seed, filters out failed downloads, and writes each subset to a directory of the form:
+The full PixelProse dataset is too large to train on exhaustively within a 
+single semester project, so I constructed several smaller subsets using a dedicated 
+script (\texttt{scripts/build\_pixelprose\_subset.py}). The script downloads 
+images and metadata from the Hugging Face PixelProse dataset, shuffles with a fixed seed, 
+filters out failed downloads, and writes each subset to a directory of the form:
 \begin{quote}
 \texttt{data/pixelprose\_subset\{index\}/}
 \end{quote}
@@ -627,43 +644,120 @@ These galleries make it easier to see how prompting style and LoRA fine-tuning j
 \label{sec:discussion}
 
 The experiments suggest several key observations about the relative strengths and weaknesses of LoRA fine-tuning and multimodal few-shot prompting for dense captioning.
+\paragraph{Caveat About Automated Metrics}
+An important caveat in interpreting these results is that all automatic metrics are computed 
+against the PixelProse captions themselves, not against the ground truth of the image. This 
+means that any inaccuracies or subjective choices in PixelProse are effectively treated as ground truth. 
+For example, in one of the few-shot exemplars the caption describes a necklace chain as silver even 
+though it is visually gold; a model that correctly calls the chain gold will be penalized by 
+BLEU, METEOR, and CIDEr because it diverges from the reference wording. As a result, the 
+reported scores primarily measure stylistic and lexical similarity to PixelProse rather than 
+objective visual correctness. Future work could address this by incorporating more independent evaluation 
+signals, such as LLM-as-judge setups that directly inspect both the image and caption, or auxiliary 
+task-specific metrics that score factual grounding of attributes and relations. The qualitative 
+galleries are therefore essential: they reveal when a configuration achieves high metric scores 
+by mimicking PixelProse quirks, and when it produces visually faithful captions that may 
+nonetheless receive lower automatic scores due to label noise in the dataset.
 
 \paragraph{Effectiveness of Few-Shot Prompting.}
-For the pretrained model, multimodal few-shot prompting with three exemplars consistently improves automatic metrics and produces captions that are qualitatively closer to PixelProse outputs. The exemplars seem to serve two roles: they demonstrate the desired level of detail, and they implicitly bias the model toward the PixelProse style (including sentence structure and lexical choices). This indicates that few-shot prompting is a viable way to adapt general-purpose VLMs to dense captioning without any weight updates.
+For the pretrained model, multimodal few-shot prompting with three exemplars consistently 
+improves automatic metrics and produces captions that are qualitatively closer to PixelProse outputs. 
+The exemplars seem to serve two roles: they demonstrate the desired level of detail, 
+and they implicitly bias the model toward the PixelProse style (including sentence structure and 
+lexical choices). This indicates that few-shot prompting is a 
+viable way to adapt general-purpose VLMs to dense captioning without any weight updates.
 
 \paragraph{Limited Gains from Small-Scale LoRA Fine-Tuning.}
-Due to resource constraints and the inability to run stable multi-GPU training, the LoRA fine-tuning in this project was limited to a relatively small subset of PixelProse and a modest number of optimization steps. Under these conditions, the fine-tuned model shows only small improvements over the pretrained model when using the same prompts. In particular, FT + D is competitive with PT + D but does not dramatically outperform it. This suggests that when training data and compute are limited, prompt engineering and few-shot prompting may yield comparable or larger gains than a small LoRA run.
+Due to resource constraints and the inability to run stable multi-GPU training, 
+the LoRA fine-tuning in this project was limited to a relatively small subset of 
+PixelProse and a modest number of optimization steps. Under these conditions, the 
+fine-tuned model shows only small improvements over the pretrained model when 
+using the same prompts. In particular, FT + D is competitive with PT + D 
+but does not dramatically outperform it. This suggests that when training data 
+and compute are limited, prompt engineering and few-shot prompting 
+may yield comparable or larger gains than a small LoRA run.
 
 \paragraph{Failure of the Combined FT + Few-Shot Setting.}
-The most surprising result is that combining LoRA fine-tuning with detailed few-shot prompting (FT + D\_FS) significantly \emph{degrades} performance. The generated captions are often extremely long, repetitive, or misaligned with the query image. In several examples, the model appears to describe one of the exemplar images instead of the query, or it loops over phrases already present in the exemplars.
+The most surprising result is that combining LoRA fine-tuning with detailed 
+few-shot prompting (FT + D\_FS) significantly \emph{degrades} performance. 
+The generated captions are often extremely long, repetitive, or misaligned 
+with the query image. In several examples, the model appears to describe 
+one of the exemplar images instead of the query, or it 
+loops over phrases already present in the exemplars.
 
-A plausible explanation is that the LoRA adapter was trained solely on single-image inputs paired with the detailed prompt, without any few-shot structure. During training, the model never sees multiple images in the same sequence or captions that refer to ``exemplar'' and ``query'' images. At evaluation time, the FT + D\_FS configuration suddenly introduces multiple images and a more complex prompt. The adapted language model may therefore overfit to patterns in the exemplar captions and struggle to disentangle which visual features correspond to the current generation target.
+A plausible explanation is that the LoRA adapter was trained solely on 
+single-image inputs paired with the detailed prompt, 
+without any few-shot structure. During training, the model never sees 
+multiple images in the same sequence or captions that refer to 
+``exemplar'' and ``query'' images. At evaluation time, the FT + D\_FS 
+configuration suddenly introduces multiple images and a more complex prompt. 
+The adapted language model may therefore overfit to patterns in the 
+exemplar captions and struggle to disentangle which visual features 
+correspond to the current generation target.
 
-This effect underscores an important lesson: fine-tuning and prompting must be aligned. If a model is fine-tuned under one prompt distribution and deployed under a different prompt distribution (for example, adding few-shot examples or changing instruction phrasing), can degrade performance on the dense captioning task.
+This effect underscores an important lesson: fine-tuning and prompting must be aligned. 
+If a model is fine-tuned under one prompt distribution and deployed under a 
+different prompt distribution (for example, adding few-shot examples or changing 
+instruction phrasing), can degrade performance on the dense captioning task. 
 
 \paragraph{Memory Cost of Multimodal Few-Shot Prompting.}
-Another important observation is the memory footprint of multimodal few-shot prompting. When using three exemplar images plus the query, the system consumed roughly 50~GB of VRAM across my GPUs. In settings where GPU memory is limited or where batched inference over many images is required, this overhead may be prohibitive. In contrast, once a LoRA adapter is trained, it has essentially no additional inference-time memory cost beyond the base model.
+Another important observation is the memory footprint of multimodal few-shot 
+prompting. When using three exemplar images plus the query, the 
+system consumed roughly 50~GB of VRAM across my GPUs. In settings where GPU 
+memory is limited or where batched inference over many images is required, this 
+overhead may be prohibitive. In contrast, once a LoRA adapter is trained, 
+it has essentially no additional inference-time memory cost beyond the base model.
 
-This trade-off suggests that few-shot prompting is especially attractive in scenarios with ample memory and relatively low throughput requirements (for example, interactive captioning tools), while fine-tuning may be more appropriate when serving large numbers of requests or running on edge devices.
+This trade-off suggests that few-shot prompting is 
+especially attractive in scenarios with ample memory and relatively low 
+throughput requirements (for example, interactive captioning tools), while fine-tuning 
+may be more appropriate when serving large numbers of requests or running on edge devices
+assuming the quality of fined tuned responses can be improved by reptition reduction techniques
+and better training conditions.
 
 \paragraph{Implications for Future Systems.}
-Taken together, these results argue for more holistic design of captioning systems. Few-shot prompting is a powerful tool, but aligning the training and inference prompts is crucial. When fine-tuning is used, it should ideally be performed with the same prompt structure (including few-shot exemplars) that will be used at deployment. Conversely, when only prompting is feasible, careful selection of exemplars and anti-repetition decoding strategies can yield strong gains without any training.
+Taken together, these results argue for more holistic design of captioning 
+systems. Few-shot prompting is a powerful tool, but aligning the training 
+and inference prompts is crucial. When fine-tuning is used, it should 
+ideally be performed with the same prompt structure (including 
+few-shot exemplars) that will be used at deployment. Conversely, when 
+only prompting is feasible, careful selection of exemplars and anti-repetition 
+decoding strategies can yield strong gains without any training.
 
 \section{Conclusion}
 \label{sec:conclusion}
 
-This project set out to compare LoRA fine-tuning and multimodal few-shot prompting as strategies for improving detailed image captioning with InternVL~3.5 2B on the PixelProse dataset. Within the constraints of a single-semester project and single-GPU training, I found that:
+This project set out to compare LoRA fine-tuning and multimodal few-shot 
+prompting as strategies for improving detailed image captioning with 
+InternVL~3.5 2B on the PixelProse dataset. 
+Within the constraints of a single-semester project, single-GPU training, and multi-GPU inference, I found that:
 
 \begin{itemize}
-    \item Multimodal few-shot prompting with three exemplar image--caption pairs substantially improves similarity to PixelProse captions for the pretrained model, both quantitatively and qualitatively.
-    \item The small-scale LoRA fine-tuning run used here provides only modest additional gains when evaluated under the same prompts, likely due to limited training data and compute.
-    \item Combining LoRA fine-tuning with a prompt structure that is very different from the training prompt (detailed few-shot) can lead to worse performance and pathological behavior such as repetition and off-target descriptions.
-    \item Few-shot prompting carries a significant VRAM cost when multiple images are processed in a single context, which may limit its applicability in memory-constrained settings.
+    \item Multimodal few-shot prompting with three exemplar image--caption pairs substantially 
+    improves similarity to PixelProse captions for the pretrained model, both quantitatively and qualitatively.
+    \item The small-scale LoRA fine-tuning run used here provides 
+    only modest additional gains when evaluated under the same prompts, likely due to limited training data and 
+    issues with repetition.
+    \item Combining LoRA fine-tuning with a prompt structure 
+    that is very different from the training prompt (detailed few-shot) 
+    can lead to worse performance and pathological behavior 
+    such as repetition and off-target descriptions.
+    \item Few-shot prompting carries a significant VRAM cost 
+    when multiple images are processed in a single context, 
+    which may limit its applicability in memory-constrained settings.
 \end{itemize}
 
-From a learning perspective, I gained practical experience setting up a modern multimodal pipeline, implementing LoRA fine-tuning for a large vision--language model, and designing careful evaluations that compare prompting and training-based approaches. The project also reinforced the importance of aligning training and inference conditions and of combining automatic metrics with qualitative analysis.
+From a learning perspective, I gained practical experience setting up a modern multimodal pipeline, 
+implementing LoRA fine-tuning for a large vision--language model, and designing careful evaluations 
+that compare prompting and training-based approaches. The project also reinforced the 
+importance of aligning training and inference conditions and of 
+combining automatic metrics with qualitative analysis.
 
-Future work could pursue several directions: scaling LoRA training to multi-GPU settings and larger subsets of PixelProse, explicitly training the model on few-shot prompts that mirror the evaluation setup, experimenting with anti-repetition loss functions or decoding strategies, and exploring more diverse exemplar selection strategies to reduce overfitting to a small set of examples.
+Future work could pursue several directions: scaling LoRA training to 
+multi-GPU settings and larger subsets of PixelProse, explicitly training the model on 
+few-shot prompts that mirror the evaluation setup, experimenting with anti-repetition 
+loss functions or decoding strategies, and exploring more diverse exemplar selection 
+strategies to reduce overfitting to a small set of examples.
 
 \section*{My Contribution}
 
