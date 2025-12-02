@@ -15,6 +15,3 @@ logs/**/*
 metrics/**/*
 
 checkpoints/**/*
-
-*.aux
-*.fdb_latexmk
