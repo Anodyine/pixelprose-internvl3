@@ -7,6 +7,8 @@
 \usepackage{multirow}
 \usepackage{caption}
 \usepackage{subcaption}
+\usepackage{minted}  
+\usepackage{appendix}    
 
 \title{Enhancing Visual Captioning:\\
 Comparing LoRA Fine-Tuning and Few-Shot Prompting on the PixelProse Dataset}
@@ -183,7 +185,7 @@ configuration is:
 
 The training dataset class \texttt{PixelProseLoraDataset} constructs each example
 from a single image and its PixelProse caption. It uses the same detailed prompt
-as the PT/FT evaluation setting (\texttt{prompts/detailed.txt}):
+as the evaluation script found in: (\texttt{prompts/detailed.txt}):
 
 \begin{quote}
 \emph{``Provide a detailed, comprehensive caption describing all key objects,
@@ -287,7 +289,13 @@ the few shot prompting configuration are shown below.
     \fbox{%
       \parbox{0.95\textwidth}{\small
       \textbf{Exemplar 1 (outfit image, ID 0):}\\[0.25em]
-      This image displays two sets of outfits, each containing a black T-shirt, a blue blazer, and a pair of blue jeans. The T-shirts have a white logo on them, reading: ``S.T.A.R. Labs.'' The blazers are both a deep royal blue color. The left blue blazer has a white lightning bolt emblem on the left sleeve. The right blazer has a gold emblem of an atom on the left sleeve. Both pairs of jeans are light blue and slightly distressed. The left outfit is paired with a pair of red high-top Converse sneakers, and a red purse with black edges and handles. The right outfit is paired with a pair of black high-top Converse sneakers and a silver necklace with a lightning bolt pendant. The background of the image is a white square.\\[0.75em]
+      This image displays two sets of outfits, each containing a black T-shirt, a blue blazer, and a pair of 
+      blue jeans. The T-shirts have a white logo on them, reading: 
+      ``S.T.A.R. Labs.'' The blazers are both a deep royal blue color. 
+      The left blue blazer has a white lightning bolt emblem on the left sleeve. 
+      The right blazer has a gold emblem of an atom on the left sleeve. Both pairs of jeans 
+      are light blue and slightly distressed. The left outfit is paired with a pair of red 
+      high-top Converse sneakers, and a red purse with black edges and handles. The right outfit is paired with a pair of black high-top Converse sneakers and a silver necklace with a lightning bolt pendant. The background of the image is a white square.\\[0.75em]
 
       \textbf{Metadata:}\\[0.25em]
       Aesthetic score: 5.30 \quad Watermark score: 0.83\\[0.5em]
@@ -407,35 +415,68 @@ Table~\ref{tab:metrics} summarizes the main automatic metrics for the six config
 Several trends are immediately apparent:
 
 \begin{itemize}
-    \item For the pretrained model, simply switching from the neutral prompt (PT + N) to the detailed prompt (PT + D) yields a large improvement across all metrics. Average predicted caption length increases from roughly 40 tokens to nearly 100 tokens, and BLEU, METEOR, CIDEr, and BERTScore all improve.
-    \item Adding multimodal few-shot exemplars on top of the detailed prompt (PT + D\_FS) produces the best overall scores for the pretrained model. METEOR and BERTScore in particular increase noticeably, suggesting that the model's style and content become more aligned with PixelProse captions when it sees exemplar image--caption pairs.
-    \item LoRA fine-tuning with the neutral prompt (FT + N) dramatically increases average caption length (often exceeding 190 tokens) and provides higher METEOR than PT + N. However, CIDEr remains low, indicating that the increased verbosity does not always translate into better n-gram agreement with the ground truth.
-    \item The fine-tuned model with the detailed prompt (FT + D) performs similarly to PT + D in terms of BLEU and METEOR, with slightly higher BERTScore but still modest gains compared to the impact of multimodal few-shot prompting.
-    \item Surprisingly, combining LoRA fine-tuning with detailed few-shot prompting (FT + D\_FS) \emph{hurts} performance. All metrics drop relative to PT + D\_FS, and BERTScore decreases substantially. Qualitative inspection reveals that this configuration often produces repetitive or off-topic captions.
+    \item For the pretrained model, simply switching from the neutral prompt 
+    (PT + N) to the detailed prompt (PT + D) yields a large improvement across all metrics. Average predicted 
+    caption length increases from roughly 40 tokens to nearly 100 tokens, and BLEU, METEOR, CIDEr, and BERTScore all improve.
+    \item The few shot prompting configuration (PT + D\_FS) produces the best overall scores for the pretrained model. METEOR and BERTScore in particular 
+    increase noticeably, suggesting that the model's style and content 
+    become more aligned with PixelProse captions when it sees exemplar image-caption pairs.
+    \item LoRA fine-tuning with the neutral prompt (FT + N) dramatically increases 
+    average caption length (often exceeding 190 tokens) and provides higher METEOR 
+    than PT + N. However, CIDEr remains low, indicating that the increased verbosity 
+    does not always translate into better n-gram agreement with the ground truth.
+    \item The fine-tuned model with the detailed prompt (FT + D) performs similarly 
+    to PT + D in terms of BLEU and METEOR, with slightly higher BERTScore but still modest 
+    gains compared to the impact of multimodal few-shot prompting.
+    \item Surprisingly, combining LoRA fine-tuning with detailed few-shot prompting 
+    (FT + D\_FS) \emph{hurts} performance. All metrics drop relative to PT + D\_FS, and 
+    BERTScore decreases substantially. Qualitative inspection reveals that this configuration 
+    often produces repetitive or off-topic captions and occacionally copies an examplar answer.
 \end{itemize}
 
-Overall, on this training budget, multimodal few-shot prompting provides the clearest benefit over the base model, whereas the small-scale LoRA fine-tuning run yields only modest additional improvements and interacts poorly with few-shot prompting.
+Overall, on this training budget, multimodal few-shot prompting 
+provides the clearest benefit over the base model, whereas the 
+small-scale LoRA fine-tuning run yields only modest additional 
+improvements and interacts poorly with few-shot prompting.
 
 \subsection{VRAM Usage and Computational Cost}
 
-One of the original goals of this project was to compare not only caption quality but also computational cost. Although I did not perform a full runtime and energy audit, I did track GPU memory usage during key configurations.
+One of the original goals of this project was to compare not only caption quality but also 
+computational cost. Although I did not perform 
+a full runtime and energy audit, I did track GPU memory usage during key configurations.
 
-When using multimodal few-shot prompting with three exemplar images plus one query image, InternVL must process all patches from four images in a single forward pass. On my hardware, this configuration used approximately 50~GB of VRAM across the 4x RTX 3090 system. This is significantly higher than the memory required for single-image captioning or for running the fine-tuned model without exemplars.
+When using multimodal few-shot prompting with three exemplar 
+images plus one query image, InternVL must process all patches 
+from four images in a single forward pass. On my hardware, this configuration used approximately 
+50~GB of VRAM across the 4x RTX 3090 system. This is significantly higher than the 
+memory required for single-image captioning or for running the fine-tuned model without exemplars.
 
-In contrast, LoRA fine-tuning itself can be performed with more modest per-batch memory (once the model is loaded), and the resulting fine-tuned model can be deployed with the same inference-time memory footprint as the pretrained model, as long as no few-shot exemplars are used. This highlights a key trade-off: few-shot prompting can be very effective at steering behavior but may be difficult to scale when memory is tight or when many images need to be processed in parallel.
+In contrast, LoRA fine-tuning itself can be performed with more modest per-batch memory 
+(once the model is loaded), and the resulting fine-tuned model can be deployed with the 
+same inference-time memory footprint as the pretrained model, as long as no few-shot 
+exemplars are used. This highlights a key trade-off: few-shot prompting can be 
+very effective at steering behavior but may be difficult to scale when memory is 
+tight or when many images need to be processed in parallel.
 
 \subsection{Qualitative Galleries}
 \label{sec:galleries}
 
-To better understand how each configuration behaves beyond aggregate similarity metrics, I constructed a series of qualitative galleries. Each gallery focuses on a single image from the PixelProse subset and shows:
+To better understand how each configuration behaves beyond aggregate similarity 
+metrics, I constructed a series of qualitative galleries. Each gallery focuses 
+on a single image from the PixelProse subset and shows:
 
 \begin{itemize}
     \item The input image (top),
     \item The PixelProse reference caption, and
-    \item The generated captions from five configurations: pretrained factual (PT~+~N), pretrained detailed (PT~+~D), pretrained detailed multimodal few-shot (PT~+~D\_FS), fine-tuned factual (FT~+~N), and fine-tuned detailed (FT~+~D).
+    \item The generated captions from five configurations: 
+    pretrained factual (PT~+~N), pretrained detailed (PT~+~D), 
+    pretrained detailed multimodal few-shot (PT~+~D\_FS), fine-tuned 
+    factual (FT~+~N), and fine-tuned detailed (FT~+~D).
 \end{itemize}
 
-These galleries make it easier to see how prompting style and LoRA fine-tuning jointly affect caption length, style, and failure modes such as hallucination and repetition.
+These galleries make it easier to see how prompting style 
+and LoRA fine-tuning jointly affect caption length, style, 
+and failure modes such as hallucination and repetition.
 
 % =========================================================
 % ID 3: woman in gray hoodie
@@ -775,6 +816,1752 @@ I worked alone on this project, so all aspects of the work were my responsibilit
 
 \bibliographystyle{plain}
 \bibliography{references}
+\begin{appendices}
+\section{eval\_captions.py}
+\begin{minted}[
+    linenos,              % show line numbers
+    breaklines,           % wrap long lines
+    fontsize=\scriptsize  % small text; use \footnotesize if you prefer
+]{python}
+# src/eval_captions.py
+#
+# Evaluate InternVL 3.5 2B on a PixelProse subset under three prompting styles:
+#   0 = PT/FT + Neutral prompt (N)
+#   1 = PT/FT + Detailed prompt (D)
+#   2 = PT/FT + Detailed + Few-shot (multimodal) (D_FS)
+#
+# This script:
+#   - Selects `num_exemplars` exemplars from the subset metadata.
+#   - Logs exemplars to logs/eval_subset{idx}_{PT/FT}_exemplars.jsonl.
+#   - Excludes exemplar IDs from evaluation.
+#   - Runs all three prompting styles on the SAME set of evaluation images.
+#   - Writes three eval logs:
+#       logs/eval_subset{idx}_{PT/FT}_N.jsonl
+#       logs/eval_subset{idx}_{PT/FT}_D.jsonl
+#       logs/eval_subset{idx}_{PT/FT}_D_FS.jsonl
+#
+# Example:
+#   python -m src.eval_captions --subset-index 0 --max-eval 100 --num-exemplars 2
 
+import argparse
+import json
+import os
+from pathlib import Path
+from typing import Dict, Any, List, Set, Tuple
+
+import torch
+from transformers import AutoModel, AutoTokenizer
+
+from src.test_internvl_caption import load_image
+from peft import PeftModel
+
+
+PROMPT_FILES = {
+    0: "neutral.txt",          # N
+    1: "detailed.txt",         # D
+    2: "detailed_fewshot.txt", # D_FS instruction text
+}
+
+EXEMPLAR_MAX_NUM = 12
+EXEMPLAR_INPUT_SIZE = 448
+
+
+# ---------------------------------------------------------------------------
+# Helpers
+# ---------------------------------------------------------------------------
+
+def load_metadata(meta_path: Path) -> List[Dict[str, Any]]:
+    records = []
+    with meta_path.open("r", encoding="utf-8") as f:
+        for line in f:
+            line = line.strip()
+            if not line:
+                continue
+            records.append(json.loads(line))
+    return records
+
+
+def load_prompt(prompting_method: int, prompt_dir: Path = Path("prompts")) -> str:
+    if prompting_method not in PROMPT_FILES:
+        raise ValueError(f"Unknown prompting_method {prompting_method}")
+
+    prompt_file = prompt_dir / PROMPT_FILES[prompting_method]
+    if not prompt_file.exists():
+        raise FileNotFoundError(f"Prompt file not found: {prompt_file}")
+
+    text = prompt_file.read_text(encoding="utf-8").strip()
+    if not text:
+        raise ValueError(f"Prompt file is empty: {prompt_file}")
+    return text
+
+
+def load_model(use_finetuned: bool):
+    """
+    Load the base or LoRA-finetuned InternVL model.
+
+    For FT:
+    - load the base InternVL 3.5 2B Instruct
+    - load the LoRA adapter on the *language_model* submodule
+    - plug the LoRA-wrapped LM back into the full InternVLChatModel
+    """
+    base_id = "OpenGVLab/InternVL3_5-2B-Instruct"
+
+    if use_finetuned:
+        lora_path = os.getenv(
+            "INTERNVL_FINETUNED_PATH",
+            "checkpoints/internvl3_5_2b_lora_pixelprose/subset2_r32_a64",
+        )
+        print(
+            f"[INFO] use_finetuned=True. "
+            f"Base: {base_id}, LoRA adapter (language_model): {lora_path}"
+        )
+
+        # 1) Load the full InternVL base model
+        base_model = AutoModel.from_pretrained(
+            base_id,
+            torch_dtype=torch.bfloat16,
+            low_cpu_mem_usage=True,
+            use_flash_attn=False,
+            trust_remote_code=True,
+            device_map="auto",
+        )
+
+        # 2) Wrap ONLY the language_model submodule with the saved LoRA adapter
+        lm = base_model.language_model
+        lm = PeftModel.from_pretrained(
+            lm,
+            lora_path,
+            is_trainable=False,  # eval-time, no gradients
+        )
+        lm.eval()
+        base_model.language_model = lm
+
+        model = base_model.eval()
+
+    else:
+        print(f"[INFO] use_finetuned=False. Loading pretrained model: {base_id}")
+        model = AutoModel.from_pretrained(
+            base_id,
+            torch_dtype=torch.bfloat16,
+            low_cpu_mem_usage=True,
+            use_flash_attn=False,
+            trust_remote_code=True,
+            device_map="auto",
+        ).eval()
+
+    tokenizer = AutoTokenizer.from_pretrained(
+        base_id,
+        trust_remote_code=True,
+        use_fast=False,
+    )
+
+    return model, tokenizer
+
+
+def select_exemplars(
+    records: List[Dict[str, Any]],
+    num_exemplars: int,
+) -> Tuple[List[Dict[str, Any]], Set[int]]:
+    """
+    Deterministically select the first `num_exemplars` records as exemplars.
+    Returns (exemplar_records, exemplar_ids).
+    """
+    num_ex = min(num_exemplars, len(records))
+    if num_ex <= 0:
+        raise RuntimeError("No records available to select exemplars from.")
+
+    exemplars = records[:num_ex]
+    exemplar_ids = {int(r["id"]) for r in exemplars}
+    return exemplars, exemplar_ids
+
+
+# ---------------------------------------------------------------------------
+# Evaluation for one prompting method
+# ---------------------------------------------------------------------------
+
+def evaluate_prompting_method(
+    prompting_method: int,
+    model,
+    tokenizer,
+    subset_dir: Path,
+    eval_records: List[Dict[str, Any]],
+    prompt_text: str,
+    exemplar_pixels: List[torch.Tensor],
+    exemplar_captions: List[str],
+    model_tag: str,
+    subset_index: int,
+    max_eval: int,
+) -> None:
+    """
+    Run evaluation for a single prompting method and write a log file.
+    """
+    if prompting_method == 0:
+        prompt_tag = "N"
+    elif prompting_method == 1:
+        prompt_tag = "D"
+    else:
+        prompt_tag = "D_FS"
+
+    out_dir = Path("logs")
+    out_dir.mkdir(parents=True, exist_ok=True)
+
+    out_path = out_dir / (
+        f"eval_subset{subset_index}_{model_tag}_{prompt_tag}.jsonl"
+    )
+    print(f"[INFO] [{prompt_tag}] Writing outputs to: {out_path}")
+    
+    # NOTE: the config below has been modified since the final run. I am demonstrating what I would do to 
+    # reduce repetition here in practice. However, since I want a fair comparison between PT and FT, the final 
+    # run ran without repetition penalty or no_repeat_ngram_size
+    generation_config = dict(
+        max_new_tokens=200,
+        do_sample=False,             # keep deterministic for eval
+        repetition_penalty=1.15,     # >1.0 penalizes repeats
+        no_repeat_ngram_size=4,      # disallow exact 4-gram repeats
+    )
+
+    num_evaluated = 0
+
+    with out_path.open("w", encoding="utf-8") as outf:
+        for rec in eval_records:
+            if num_evaluated >= max_eval:
+                break
+
+            rec_id = int(rec["id"])
+            img_rel = rec["image_file"]
+            img_path = subset_dir / img_rel
+            gt_caption = rec["caption"]
+
+            # Load query image tiles (CPU tensor)
+            query_pv = load_image(str(img_path), max_num=12)
+
+            if prompting_method in (0, 1):
+                # Single-image case
+                pixel_values = query_pv.to(torch.bfloat16).cuda()
+
+                question = f"<image>\n{prompt_text}"
+
+                pred_caption = model.chat(
+                    tokenizer,
+                    pixel_values,
+                    question,
+                    generation_config,
+                )
+
+            else:
+                # Few-shot multimodal: exemplars + query image
+                assert exemplar_pixels is not None and exemplar_captions is not None
+
+                # 1) Move exemplars and query onto GPU
+                ex_pv_gpu = [
+                    pv.to(torch.bfloat16).cuda(non_blocking=True)
+                    for pv in exemplar_pixels
+                ]
+                query_pv_gpu = query_pv.to(torch.bfloat16).cuda(non_blocking=True)
+
+                # 2) Concatenate patches and build num_patches_list
+                pixel_values_all = torch.cat(ex_pv_gpu + [query_pv_gpu], dim=0)
+                num_patches_list = [
+                    pv.size(0) for pv in ex_pv_gpu
+                ] + [query_pv_gpu.size(0)]
+
+                # 3) Build multimodal few-shot prompt
+                lines = []
+                for i, cap in enumerate(exemplar_captions):
+                    lines.append(f"Exemplar-{i+1}: <image>")
+                    lines.append(f"Caption-{i+1}: {cap}")
+                    lines.append("")
+
+                lines.append("Query: <image>")
+                lines.append(prompt_text.strip())  # detailed_fewshot instruction
+
+                question = "\n".join(lines)
+
+                # Debug: print patch counts
+                print("----- FEWSHOT INPUT DEBUG -----")
+                print(f"Num exemplars: {len(ex_pv_gpu)}")
+                for i, pv in enumerate(ex_pv_gpu):
+                    print(f"  Exemplar-{i+1} patches: {pv.size(0)}")
+                print(f"Query patches: {query_pv_gpu.size(0)}")
+                print(f"num_patches_list: {num_patches_list}")
+                print(f"Total patches: {pixel_values_all.size(0)}")
+                print("------------------------------")
+
+                pred_caption = model.chat(
+                    tokenizer,
+                    pixel_values_all,
+                    question,
+                    generation_config,
+                    num_patches_list=num_patches_list,
+                )
+
+            out_rec = {
+                "id": rec_id,
+                "image_file": img_rel,
+                "gt_caption": gt_caption,
+                "prompting_method": prompting_method,
+                "prompt_text": question if prompting_method == 2 else prompt_text,
+                "model_config": model_tag,
+                "prediction": pred_caption,
+            }
+            outf.write(json.dumps(out_rec, ensure_ascii=False) + "\n")
+
+            num_evaluated += 1
+            if num_evaluated % 10 == 0:
+                print(f"[INFO] [{prompt_tag}] Evaluated {num_evaluated}/{max_eval} examples...")
+
+    print(f"[INFO] [{prompt_tag}] Evaluation complete. Total evaluated: {num_evaluated}")
+
+
+# ---------------------------------------------------------------------------
+# Main
+# ---------------------------------------------------------------------------
+
+def main():
+    parser = argparse.ArgumentParser(
+        description="Evaluate InternVL captions on a PixelProse subset (all prompting styles)."
+    )
+    parser.add_argument(
+        "--subset-index",
+        type=int,
+        default=0,
+        help="PixelProse subset index (uses data/pixelprose_subset{index}). Default: 0",
+    )
+    parser.add_argument(
+        "--use-finetuned",
+        action="store_true",
+        help="Use LoRA-finetuned model (FT) instead of pretrained (PT). Default: False",
+    )
+    parser.add_argument(
+        "--max-eval",
+        type=int,
+        default=100,
+        help="Maximum number of examples to evaluate (excluding exemplars). Default: 100",
+    )
+    parser.add_argument(
+        "--num-exemplars",
+        type=int,
+        default=2,
+        help="Number of exemplars to use for few-shot prompting. Default: 2",
+    )
+
+    args = parser.parse_args()
+
+    subset_dir = Path(f"data/pixelprose_subset{args.subset_index}")
+    meta_path = subset_dir / "metadata.jsonl"
+
+    assert subset_dir.exists(), f"Subset dir not found: {subset_dir}"
+    assert meta_path.exists(), f"Metadata not found: {meta_path}"
+
+    print(f"[INFO] Using subset dir: {subset_dir}")
+    print(f"[INFO] Reading metadata from: {meta_path}")
+
+    records = load_metadata(meta_path)
+    print(f"[INFO] Loaded {len(records)} records total")
+
+    # 1) Select exemplars from metadata
+    exemplar_recs, exemplar_ids = select_exemplars(records, args.num_exemplars)
+    print(f"[INFO] Selected {len(exemplar_recs)} exemplars from metadata:")
+    print(f"[INFO] Exemplar IDs (excluded from eval): {sorted(exemplar_ids)}")
+
+    # 2) Build evaluation records (excluding exemplars)
+    eval_records = [r for r in records if int(r["id"]) not in exemplar_ids]
+    print(f"[INFO] Eval records after excluding exemplars: {len(eval_records)}")
+
+    # 3) Load all prompt texts
+    prompt_texts = {
+        m: load_prompt(m) for m in (0, 1, 2)
+    }
+    for m, txt in prompt_texts.items():
+        print(f"[INFO] Prompt {m} text (first line): {txt.splitlines()[0] if txt else ''}")
+
+    # 4) Load model
+    model, tokenizer = load_model(args.use_finetuned)
+
+    model_tag = "FT" if args.use_finetuned else "PT"
+
+    # 5) Log exemplars used for this run
+    out_dir = Path("logs")
+    out_dir.mkdir(parents=True, exist_ok=True)
+    exemplar_log_path = out_dir / (
+        f"eval_subset{args.subset_index}_{model_tag}_exemplars.jsonl"
+    )
+    print(f"[INFO] Writing exemplar info to: {exemplar_log_path}")
+    with exemplar_log_path.open("w", encoding="utf-8") as exf:
+        for ex in exemplar_recs:
+            exf.write(json.dumps(ex, ensure_ascii=False) + "\n")
+
+    # 6) Prepare exemplar tensors for few-shot prompting
+    exemplar_pixels: List[torch.Tensor] = []
+    exemplar_captions: List[str] = []
+    for ex in exemplar_recs:
+        img_rel = ex["image_file"]
+        img_path = subset_dir / img_rel
+        cap = ex["caption"]
+
+        pv = load_image(
+            str(img_path),
+            input_size=EXEMPLAR_INPUT_SIZE,
+            max_num=EXEMPLAR_MAX_NUM,
+        )
+        exemplar_pixels.append(pv)
+        exemplar_captions.append(cap)
+
+    print(f"[INFO] Prepared {len(exemplar_pixels)} exemplar tensors for few-shot.")
+
+    # Clip eval_records to max_eval for consistency across all methods
+    eval_records = eval_records[: args.max_eval]
+    print(f"[INFO] Using {len(eval_records)} eval records for all prompting styles.")
+
+    # 7) Run all prompting methods in sequence on the SAME eval set
+    for prompting_method in (0,1,2):
+        print(f"\n[INFO] Starting evaluation for prompting_method={prompting_method}...")
+        evaluate_prompting_method(
+            prompting_method=prompting_method,
+            model=model,
+            tokenizer=tokenizer,
+            subset_dir=subset_dir,
+            eval_records=eval_records,
+            prompt_text=prompt_texts[prompting_method],
+            exemplar_pixels=exemplar_pixels,
+            exemplar_captions=exemplar_captions,
+            model_tag=model_tag,
+            subset_index=args.subset_index,
+            max_eval=len(eval_records),
+        )
+
+    print("\n[INFO] All prompting styles evaluated.")
+
+
+if __name__ == "__main__":
+    main()
+
+\end{minted}
+\section{build\_pixelprose\_dataset.py}
+\begin{minted}[
+    linenos,              % show line numbers
+    breaklines,           % wrap long lines
+    fontsize=\scriptsize  % small text; use \footnotesize if you prefer
+]{python}
+# scripts/build_pixelprose_subset.py
+
+import json
+from io import BytesIO
+from pathlib import Path
+from typing import Optional
+
+import requests
+from datasets import load_dataset
+from PIL import Image
+from tqdm import tqdm
+
+
+def download_image(url: str, out_path: Path, timeout: float = 10.0) -> bool:
+    """Download image from URL and save as JPEG. Returns True on success, False otherwise."""
+    try:
+        resp = requests.get(url, timeout=timeout)
+        resp.raise_for_status()
+        img = Image.open(BytesIO(resp.content)).convert("RGB")
+        out_path.parent.mkdir(parents=True, exist_ok=True)
+        img.save(out_path, format="JPEG", quality=95)
+        return True
+    except Exception as e:
+        print(f"[WARN] Failed to download {url} -> {out_path}: {e}")
+        return False
+
+
+def main(dataset_index: int, num_samples: int):
+    """
+    Build a PixelProse subset with num_samples successfully downloaded images,
+    if possible.
+
+    Args:
+        dataset_index: integer index used to choose output directory and shuffle seed.
+        num_samples: number of successful image downloads to collect.
+    """
+    # Output dir: data/pixelprose_subset{index}
+    out_dir = f"data/pixelprose_subset{dataset_index}"
+    seed = 42 + dataset_index
+
+    out_dir_path = Path(out_dir)
+    img_dir = out_dir_path / "images"
+    out_dir_path.mkdir(parents=True, exist_ok=True)
+    img_dir.mkdir(parents=True, exist_ok=True)
+
+    print(f"=== Building PixelProse subset {dataset_index} ===")
+    print(f"Output dir      : {out_dir_path}")
+    print(f"Requested images: {num_samples}")
+    print(f"Shuffle seed    : {seed}")
+
+    print("Loading PixelProse from Hugging Face...")
+    ds = load_dataset("tomg-group-umd/pixelprose", split="train", streaming=False)
+
+    print("Columns:", ds.column_names)
+    total_size = len(ds)
+    print(f"Dataset size    : {total_size}")
+
+    print("Shuffling...")
+    ds = ds.shuffle(seed=seed)
+
+    meta_path = out_dir_path / "metadata.jsonl"
+
+    kept = 0
+    tried = 0
+
+    # Progress bar tracks kept images
+    pbar = tqdm(total=num_samples, desc="Collected images", unit="img")
+
+    with meta_path.open("w", encoding="utf-8") as f:
+        # Iterate over the entire shuffled dataset until we have num_samples
+        for ex in ds:
+            if kept >= num_samples:
+                break
+
+            tried += 1
+
+            url: Optional[str] = ex.get("url")
+            caption: Optional[str] = ex.get("vlm_caption") or ex.get("original_caption")
+
+            if not url or not caption:
+                # Missing necessary fields; skip
+                continue
+
+            img_fname = f"{kept:06d}.jpg"  # IDs local to this subset: 0..num_samples-1
+            img_path = img_dir / img_fname
+
+            ok = download_image(url, img_path)
+            if not ok:
+                continue
+
+            record = {
+                "id": kept,
+                "uid": ex.get("uid"),
+                "url": url,
+                "image_file": str(img_path.relative_to(out_dir_path)),
+                "caption": caption,
+                "vlm_model": ex.get("vlm_model"),
+                "aesthetic_score": ex.get("aesthetic_score"),
+                "watermark_class_score": ex.get("watermark_class_score"),
+            }
+            f.write(json.dumps(record, ensure_ascii=False) + "\n")
+            kept += 1
+            pbar.update(1)
+
+    pbar.close()
+
+    print(f"Done scanning dataset.")
+    print(f"Tried examples   : {tried}")
+    print(f"Kept images      : {kept}")
+    print(f"Requested images : {num_samples}")
+    print(f"Data dir         : {out_dir_path}")
+    print(f"Metadata         : {meta_path}")
+
+    if kept < num_samples:
+        print(
+            f"[WARN] Could not collect the requested {num_samples} images. "
+            f"Only {kept} valid downloads were available in the entire shuffled dataset."
+        )
+
+
+if __name__ == "__main__":
+    import argparse
+
+    parser = argparse.ArgumentParser(
+        description=(
+            "Build a PixelProse subset with a given index and a target number of "
+            "successfully downloaded images."
+        )
+    )
+    parser.add_argument(
+        "dataset_index",
+        type=int,
+        help="Integer index to distinguish this subset (used in directory name and shuffle seed).",
+    )
+    parser.add_argument(
+        "num_samples",
+        type=int,
+        help="Number of successfully downloaded images to collect.",
+    )
+
+    args = parser.parse_args()
+    main(args.dataset_index, args.num_samples)
+
+\end{minted}
+
+\section{lora\_config.py}
+\begin{minted}[
+    linenos,              % show line numbers
+    breaklines,           % wrap long lines
+    fontsize=\scriptsize  % small text; use \footnotesize if you prefer
+]{python}
+# src/lora_config.py
+from peft import LoraConfig, TaskType
+
+TARGET_MODULES = [
+    "q_proj",
+    "k_proj",
+    "v_proj",
+    "o_proj",
+    "gate_proj",
+    "up_proj",
+    "down_proj",
+]
+
+def make_default_lora_config(
+    r: int = 32,
+    alpha: int = 64,
+    dropout: float = 0.05,
+) -> LoraConfig:
+    return LoraConfig(
+        r=r,
+        lora_alpha=alpha,
+        lora_dropout=dropout,
+        bias="none",
+        task_type=TaskType.CAUSAL_LM,
+        target_modules=TARGET_MODULES,
+    )
+
+\end{minted}
+
+\section{train\_lora.py}
+\begin{minted}[
+    linenos,              % show line numbers
+    breaklines,           % wrap long lines
+    fontsize=\scriptsize  % small text; use \footnotesize if you prefer
+]{python}
+# src/train_lora.py
+#
+#   - Data loading and fixed-size split.
+#   - Dataset that loads images + text.
+#   - DataLoader + collate_fn that batches variable-length text and variable
+#     numbers of image patches.
+
+
+import argparse
+import json
+from pathlib import Path
+from typing import Any, Dict, List, Tuple
+import time
+
+import torch
+from torch.utils.data import Dataset, DataLoader
+from transformers import AutoModel, AutoTokenizer
+
+from src.eval_captions import load_prompt
+from src.test_internvl_caption import load_image
+import contextlib
+
+from peft import get_peft_model, PeftModel
+
+from src.lora_config import make_default_lora_config
+from src.test_internvl_caption import load_image
+
+
+MODEL_ID = "OpenGVLab/InternVL3_5-2B-Instruct"
+MIN_TRAIN_ID = 1000
+
+IMG_START_TOKEN = "<img>"
+IMG_END_TOKEN = "</img>"
+IMG_CONTEXT_TOKEN = "<IMG_CONTEXT>"
+
+
+def load_metadata(meta_path: Path) -> List[Dict[str, Any]]:
+    records: List[Dict[str, Any]] = []
+    with meta_path.open("r", encoding="utf-8") as f:
+        for line in f:
+            line = line.strip()
+            if not line:
+                continue
+            records.append(json.loads(line))
+    return records
+
+
+def split_train_val_by_counts(
+    records: List[Dict[str, Any]],
+    min_train_id: int,
+    train_size: int,
+    val_size: int,
+) -> Tuple[List[Dict[str, Any]], List[Dict[str, Any]]]:
+    """
+    Filter to ids >= min_train_id, then take the first train_size for train
+    and the next val_size for val. Deterministic: no shuffling for now.
+    """
+    usable = [r for r in records if int(r["id"]) >= min_train_id]
+    n_usable = len(usable)
+
+    if n_usable == 0:
+        raise RuntimeError(
+            f"No usable records with id >= {min_train_id}. "
+            "Check your metadata or subset index."
+        )
+
+    if train_size + val_size > n_usable:
+        print(
+            f"[WARN] Requested train_size ({train_size}) + val_size ({val_size}) "
+            f"= {train_size + val_size} but only {n_usable} usable records exist. "
+            "Truncating to fit."
+        )
+        train_size = min(train_size, n_usable)
+        val_size = min(val_size, max(0, n_usable - train_size))
+
+    if train_size == 0 or val_size == 0:
+        raise RuntimeError(
+            f"After adjustment, train_size={train_size}, val_size={val_size}. "
+            "Both must be > 0."
+        )
+
+    train_records = usable[:train_size]
+    val_records = usable[train_size:train_size + val_size]
+
+    return train_records, val_records
+
+
+class PixelProseLoraDataset(Dataset):
+    """
+    Minimal dataset for LoRA:
+
+    - One image per example (same load_image as eval).
+    - Labels are the same as input_ids.
+    """
+
+    def __init__(
+        self,
+        records: List[Dict[str, Any]],
+        subset_dir: Path,
+        tokenizer,
+        max_length: int = 512,
+    ) -> None:
+        self.records = records
+        self.subset_dir = subset_dir
+        self.tokenizer = tokenizer
+        self.max_length = max_length
+
+        # Use the same detailed prompt I already use for prompting_method=1
+        self.prompt_text = load_prompt(1)  # 1 = detailed.txt
+        print(f"[INFO] Loaded detailed prompt for training. First line:")
+        print(f"       {self.prompt_text.splitlines()[0] if self.prompt_text else ''}")
+
+    def __len__(self) -> int:
+        return len(self.records)
+
+    def __getitem__(self, idx: int) -> Dict[str, Any]:
+        rec = self.records[idx]
+        img_rel = rec["image_file"]
+        caption = rec["caption"]
+
+        img_path = self.subset_dir / img_rel
+
+        pixel_values = load_image(str(img_path), max_num=12)
+
+        question = f"<image>\n{self.prompt_text}"
+        full_text = question + "\n" + caption
+
+        enc = self.tokenizer(
+            full_text,
+            max_length=self.max_length,
+            truncation=True,
+            return_tensors="pt",
+        )
+
+        input_ids = enc["input_ids"].squeeze(0)
+        attention_mask = enc["attention_mask"].squeeze(0)
+        labels = input_ids.clone()
+
+        return {
+            "id": int(rec["id"]),
+            "image_file": img_rel,
+            "pixel_values": pixel_values,
+            "input_ids": input_ids,
+            "attention_mask": attention_mask,
+            "labels": labels,
+            "caption": caption,
+        }
+
+
+def make_collate_fn(pad_token_id: int):
+    """
+    Collate function that:
+    - Pads text to max length in batch.
+    - Concatenates all pixel patches and records num_patches_list.
+    """
+
+    def collate(batch: List[Dict[str, Any]]) -> Dict[str, Any]:
+        # Text part: pad to max length
+        input_ids_list = [b["input_ids"] for b in batch]
+        attention_list = [b["attention_mask"] for b in batch]
+        labels_list = [b["labels"] for b in batch]
+        ids_list = [b["id"] for b in batch]
+        image_files = [b["image_file"] for b in batch]
+        captions = [b["caption"] for b in batch]
+
+        max_len = max(x.size(0) for x in input_ids_list)
+
+        batch_input_ids = []
+        batch_attention = []
+        batch_labels = []
+
+        for inp, attn, lab in zip(input_ids_list, attention_list, labels_list):
+            pad_len = max_len - inp.size(0)
+
+            if pad_len > 0:
+                pad_ids = torch.full((pad_len,), pad_token_id, dtype=inp.dtype)
+                pad_attn = torch.zeros(pad_len, dtype=attn.dtype)
+                pad_lab = torch.full((pad_len,), -100, dtype=lab.dtype)  # ignore pad in loss
+
+                inp = torch.cat([inp, pad_ids], dim=0)
+                attn = torch.cat([attn, pad_attn], dim=0)
+                lab = torch.cat([lab, pad_lab], dim=0)
+
+            batch_input_ids.append(inp)
+            batch_attention.append(attn)
+            batch_labels.append(lab)
+
+        batch_input_ids = torch.stack(batch_input_ids, dim=0)      # [B, T]
+        batch_attention = torch.stack(batch_attention, dim=0)      # [B, T]
+        batch_labels = torch.stack(batch_labels, dim=0)            # [B, T]
+
+        # Image part: variable patches per sample
+        pixel_values_list = [b["pixel_values"] for b in batch]
+        num_patches_list = [pv.size(0) for pv in pixel_values_list]
+
+        # Concatenate along patch dimension
+        pixel_values_all = torch.cat(pixel_values_list, dim=0)
+
+        return {
+            "ids": ids_list,
+            "image_files": image_files,
+            "captions": captions,
+            "pixel_values": pixel_values_all,
+            "num_patches_list": num_patches_list,
+            "input_ids": batch_input_ids,
+            "attention_mask": batch_attention,
+            "labels": batch_labels,
+        }
+
+    return collate
+
+def build_mm_inputs_for_batch(
+    tokenizer,
+    captions,
+    num_patches_list,
+    prompt_text: str,
+    num_image_token: int,
+    max_length: int,
+    device: torch.device,
+):
+    """
+    Build input_ids / attention_mask / labels with the correct number of
+    <IMG_CONTEXT> tokens per sample, so InternVL can inject visual features.
+    """
+    queries = []
+    for cap, num_patches in zip(captions, num_patches_list):
+        # How many visual tokens this sample needs
+        n_vis_tokens = num_image_token * num_patches
+
+        image_tokens = (
+            IMG_START_TOKEN
+            + IMG_CONTEXT_TOKEN * n_vis_tokens
+            + IMG_END_TOKEN
+        )
+
+        # Simple instruction format: [image tokens] + prompt + caption
+        text = (
+            image_tokens
+            + "\n"
+            + prompt_text.strip()
+            + "\n"
+            + cap
+        )
+        queries.append(text)
+
+    # Tokenize as a batch
+    enc = tokenizer(
+        queries,
+        padding=True,
+        truncation=True,
+        max_length=max_length,
+        return_tensors="pt",
+    )
+    input_ids = enc["input_ids"].to(device)
+    attention_mask = enc["attention_mask"].to(device)
+    labels = input_ids.clone() 
+
+    return input_ids, attention_mask, labels
+
+
+def main() -> None:
+    parser = argparse.ArgumentParser(
+        description=(
+            "LoRA training setup: data loading, fixed-size split, dataset, "
+            "and a single-batch DataLoader sanity check."
+        )
+    )
+    parser.add_argument(
+        "--subset-index",
+        type=int,
+        default=2,
+        help="PixelProse subset index (uses data/pixelprose_subset{index}). Default: 2",
+    )
+    parser.add_argument(
+        "--train-size",
+        type=int,
+        default=2000,
+        help="Number of train samples to take from id >= 1000 pool. Default: 2000",
+    )
+    parser.add_argument(
+        "--val-size",
+        type=int,
+        default=500,
+        help="Number of val samples to take from id >= 1000 pool. Default: 500",
+    )
+    parser.add_argument(
+        "--max-length",
+        type=int,
+        default=512,
+        help="Max sequence length for tokenizer. Default: 512",
+    )
+    parser.add_argument(
+        "--batch-size",
+        type=int,
+        default=4,
+        help="Batch size for DataLoader sanity check. Default: 4",
+    )
+    parser.add_argument(
+        "--num-epochs",
+        type=int,
+        default=1,
+        help="Number of training epochs over the train set. Default: 1",
+    )
+    parser.add_argument(
+        "--max-steps",
+        type=int,
+        default=50,
+        help="Optional cap on training steps (batches) for quick runs. Default: 50",
+    )
+    parser.add_argument(
+        "--cuda-device",
+        type=int,
+        default=0,
+        help="Which CUDA device to run on (single-GPU). Default: 0",
+    )
+    parser.add_argument(
+        "--resume-from",
+        type=str,
+        default=None,
+        help="Path to an existing LoRA adapter to continue training from.",
+    )
+    parser.add_argument(
+        "--output-dir",
+        type=str,
+        default=None,
+        help="Directory to save the LoRA adapter. "
+            "If not set, a default path based on subset index is used.",
+    )
+
+    args = parser.parse_args()
+
+    subset_dir = Path(f"data/pixelprose_subset{args.subset_index}")
+    meta_path = subset_dir / "metadata.jsonl"
+
+    if not subset_dir.exists():
+        raise FileNotFoundError(f"Subset dir not found: {subset_dir}")
+    if not meta_path.exists():
+        raise FileNotFoundError(f"Metadata not found: {meta_path}")
+
+    print(f"[INFO] Using subset dir: {subset_dir}")
+    print(f"[INFO] Reading metadata from: {meta_path}")
+
+    records = load_metadata(meta_path)
+    print(f"[INFO] Loaded {len(records)} records total")
+
+    # Explicitly count how many are reserved for final eval
+    reserved = [r for r in records if int(r["id"]) < MIN_TRAIN_ID]
+    print(f"[INFO] Reserved for final PT/FT eval (id < {MIN_TRAIN_ID}): {len(reserved)}")
+
+    train_records, val_records = split_train_val_by_counts(
+        records,
+        min_train_id=MIN_TRAIN_ID,
+        train_size=args.train_size,
+        val_size=args.val_size,
+    )
+
+    print(f"[INFO] Usable for LoRA (id >= {MIN_TRAIN_ID}): {len(train_records) + len(val_records)}")
+    print(f"[INFO] Train records (requested {args.train_size}): {len(train_records)}")
+    print(f"[INFO] Val records   (requested {args.val_size}):  {len(val_records)}")
+
+    #  show id ranges
+    if train_records:
+        print(
+            f"[DEBUG] Train id range: "
+            f"{min(int(r['id']) for r in train_records)}"
+            f" .. {max(int(r['id']) for r in train_records)}"
+        )
+    if val_records:
+        print(
+            f"[DEBUG] Val id range:   "
+            f"{min(int(r['id']) for r in val_records)}"
+            f" .. {max(int(r['id']) for r in val_records)}"
+        )
+
+    # Load tokenizer
+    print(f"[INFO] Loading tokenizer: {MODEL_ID}")
+    tokenizer = AutoTokenizer.from_pretrained(
+        MODEL_ID,
+        trust_remote_code=True,
+        use_fast=False,
+    )
+
+    pad_token_id = tokenizer.pad_token_id or tokenizer.eos_token_id
+    print(f"[INFO] Using pad_token_id={pad_token_id}")
+
+    # Build training dataset
+    train_ds = PixelProseLoraDataset(
+        train_records,
+        subset_dir=subset_dir,
+        tokenizer=tokenizer,
+        max_length=args.max_length,
+    )
+    # Save prompt + max_length for multimodal input building later
+    train_prompt_text = train_ds.prompt_text
+    train_max_length = args.max_length
+
+    print(f"[INFO] Built training dataset with {len(train_ds)} samples.")
+
+    # DataLoader + single-batch sanity check
+    collate_fn = make_collate_fn(pad_token_id)
+    train_loader = DataLoader(
+        train_ds,
+        batch_size=args.batch_size,
+        shuffle=True,
+        num_workers=4,
+        collate_fn=collate_fn,
+        pin_memory=False,
+    )
+
+    print("[INFO] Fetching one batch from DataLoader for sanity check...")
+    debug_batch = next(iter(train_loader))
+
+    print("\n[INFO] Debug batch summary:")
+    print(f"  ids:                 {debug_batch['ids']}")
+    print(f"  num_patches_list:    {debug_batch['num_patches_list']}")
+    print(f"  pixel_values shape:  {tuple(debug_batch['pixel_values'].shape)}  "
+          "(sum_patches, 3, H, W)")
+    print(f"  input_ids shape:     {tuple(debug_batch['input_ids'].shape)}      (B, T)")
+    print(f"  attention_mask shape:{tuple(debug_batch['attention_mask'].shape)} (B, T)")
+    print(f"  labels shape:        {tuple(debug_batch['labels'].shape)}         (B, T)")
+    print(f"  attention_mask sums: "
+          f"{[int(x) for x in debug_batch['attention_mask'].sum(dim=1)]}")
+
+    # --------------------------------------------------------
+    # Load base InternVL model and wrap language_model with LoRA
+    # --------------------------------------------------------
+    device = torch.device(f"cuda:{args.cuda_device}" if torch.cuda.is_available() else "cpu")
+    model_id = MODEL_ID
+
+    print(f"[INFO] Loading base InternVL model for LoRA on {device}: {model_id}")
+    model = AutoModel.from_pretrained(
+        model_id,
+        torch_dtype=torch.bfloat16,
+        low_cpu_mem_usage=True,
+        use_flash_attn=False,
+        trust_remote_code=True,
+        device_map=None,          # SINGLE GPU
+    )
+
+    # Build or resume LoRA adapter on the language_model (Qwen LM)
+    if args.resume_from:
+        print(f"[INFO] Resuming LoRA from adapter at: {args.resume_from}")
+        lm = PeftModel.from_pretrained(
+            model.language_model,
+            args.resume_from,
+            is_trainable=True,  # keep LoRA params trainable
+        )
+    else:
+        print("[INFO] Creating new LoRA adapter for language_model...")
+        lora_config = make_default_lora_config()
+        lm = get_peft_model(model.language_model, lora_config)
+
+    lm.print_trainable_parameters()
+    model.language_model = lm  # plug LoRA LM back into InternVL
+
+    model.to(device)
+    model.train()
+
+    # Tell InternVL which token is the image-context marker
+    img_context_token_id = tokenizer.convert_tokens_to_ids(IMG_CONTEXT_TOKEN)
+    model.img_context_token_id = img_context_token_id
+    print(f"[INFO] IMG_CONTEXT_TOKEN id: {img_context_token_id}, "
+          f"num_image_token: {model.num_image_token}")
+
+    # Optimizer over LoRA params only
+    optimizer = torch.optim.AdamW(
+        [p for p in model.language_model.parameters() if p.requires_grad],
+        lr=1e-4,
+        weight_decay=0.01,
+    )
+
+    if device.type == "cuda":
+        autocast_ctx = torch.cuda.amp.autocast(dtype=torch.bfloat16)
+    else:
+        autocast_ctx = contextlib.nullcontext()
+
+    global_step = 0
+    print(f"[INFO] Starting training for {args.num_epochs} epoch(s), "
+          f"max_steps={args.max_steps}...")
+    train_start_time = time.time()
+
+    for epoch in range(args.num_epochs):
+        print(f"\n[INFO] Epoch {epoch + 1}/{args.num_epochs}")
+        for step, batch in enumerate(train_loader):
+            if global_step >= args.max_steps:
+                print(f"[INFO] Reached max_steps={args.max_steps}, stopping training.")
+                break
+
+            model.train()
+
+            pixel_values = batch["pixel_values"].to(device, dtype=torch.bfloat16)
+            num_patches_list = batch["num_patches_list"]
+            captions = batch["captions"]
+
+            input_ids, attention_mask, labels = build_mm_inputs_for_batch(
+                tokenizer=tokenizer,
+                captions=captions,
+                num_patches_list=num_patches_list,
+                prompt_text=train_prompt_text,
+                num_image_token=model.num_image_token,
+                max_length=train_max_length,
+                device=device,
+            )
+
+            image_flags = torch.ones(
+                pixel_values.size(0), 1,
+                dtype=torch.long,
+                device=device,
+            )
+
+            optimizer.zero_grad(set_to_none=True)
+
+            with autocast_ctx:
+                outputs = model(
+                    pixel_values=pixel_values,
+                    input_ids=input_ids,
+                    attention_mask=attention_mask,
+                    labels=labels,
+                    image_flags=image_flags,
+                )
+                loss = outputs.loss
+
+            loss_value = float(loss.item())
+            loss.backward()
+
+            # Optional grad norm monitor
+            if (global_step % 10) == 0:
+                total_norm = 0.0
+                count = 0
+                for p in model.language_model.parameters():
+                    if p.requires_grad and p.grad is not None:
+                        param_norm = p.grad.data.norm(2).item()
+                        total_norm += param_norm ** 2
+                        count += 1
+                if count > 0:
+                    total_norm = total_norm ** 0.5
+                print(f"[STEP {global_step}] loss={loss_value:.4f}, "
+                      f"grad_norm={total_norm:.4f}")
+
+            optimizer.step()
+            global_step += 1
+
+        if global_step >= args.max_steps:
+            break
+
+    print(f"\n[INFO] Training finished at global_step={global_step}.")
+    
+    # -------------------------------
+    # Timing summary
+    # -------------------------------
+    train_end_time = time.time()
+    elapsed = train_end_time - train_start_time
+    mins = elapsed / 60
+    hrs = mins / 60
+    print("[INFO] ------------------------------------------")
+    print(f"[INFO] Training elapsed time: {elapsed:.2f} seconds")
+    print(f"[INFO] = {mins:.2f} minutes")
+    print(f"[INFO] = {hrs:.2f} hours")
+    print("[INFO] ------------------------------------------")
+
+    # --------------------------------------------------------
+    # Save LoRA adapter (language_model only)
+    # --------------------------------------------------------
+
+    # Choose output directory
+    if args.output_dir is not None:
+        out_dir = Path(args.output_dir)
+    else:
+        # Default path if none is provided
+        out_dir = Path(
+            f"checkpoints/internvl3_5_2b_lora_pixelprose/subset{args.subset_index}_r32_a64"
+        )
+
+    out_dir.mkdir(parents=True, exist_ok=True)
+
+    print(f"[INFO] Saving LoRA adapter to: {out_dir}")
+    model.language_model.save_pretrained(out_dir)
+    print("[INFO] Done. You can now load this adapter in eval_captions.py via PeftModel.from_pretrained(base_model, <adapter_path>).")
+
+if __name__ == "__main__":
+    main()
+
+\end{minted}
+
+\section{compute\_metrics.py}
+\begin{minted}[
+    linenos,              % show line numbers
+    breaklines,           % wrap long lines
+    fontsize=\scriptsize  % small text; use \footnotesize if you prefer
+]{python}
+#!/usr/bin/env python
+# scripts/compute_metrics.py
+#
+# Compute automatic metrics for one or more eval logs.
+# Currently: BLEU only (via sacrebleu).
+# Design: to add a new metric (e.g., METEOR), you:
+#   1) Implement compute_meteor(preds, refs)
+#   2) Register it in METRIC_FNS = {"bleu": compute_bleu, "meteor": compute_meteor, ...}
+#
+# Usage:
+#   python -m scripts.compute_metrics \
+#       --logs logs/eval_subset0_PT_N.jsonl \
+#              logs/eval_subset0_PT_D.jsonl \
+#              logs/eval_subset0_PT_D_FS.jsonl \
+#       --out-csv metrics/metrics_subset0_PT.csv
+
+import argparse
+import csv
+import json
+from pathlib import Path
+from typing import List, Dict, Any, Callable
+
+import sacrebleu
+import nltk
+nltk.data.path.insert(0, ".venv/nltk_data")
+from nltk.translate.meteor_score import meteor_score
+from nltk.tokenize import word_tokenize
+import evaluate
+
+
+
+# ---------------------------------------------------------------------
+# Metric functions (all share the same signature)
+# ---------------------------------------------------------------------
+
+def compute_bleu(preds: List[str], refs: List[str]) -> float:
+    """
+    Corpus BLEU using sacrebleu.
+    preds: list of model predictions (strings)
+    refs:  list of reference captions (strings)
+    """
+    if not preds:
+        return 0.0
+    bleu = sacrebleu.corpus_bleu(preds, [refs])
+    return float(bleu.score)
+
+def compute_meteor(preds: List[str], refs: List[str]) -> float:
+    """
+    Corpus METEOR as the average of sentence-level METEOR scores.
+    Returns score on 0-100 scale for consistency with BLEU.
+    """
+    if not preds:
+        return 0.0
+
+    scores = []
+    for hyp, ref in zip(preds, refs):
+        hyp = hyp or ""
+        ref = ref or ""
+
+        # Tokenize both hypothesis and reference
+        hyp_tokens = word_tokenize(hyp)
+        ref_tokens = word_tokenize(ref)
+
+        # meteor_score expects token lists:
+        # references: List[List[str]], hypothesis: List[str]
+        scores.append(meteor_score([ref_tokens], hyp_tokens))
+
+    avg_score = sum(scores) / len(scores) if scores else 0.0
+    return float(avg_score * 100.0)
+
+# Global handle for CIDEr metric (lazy-loaded)
+_CIDER_METRIC = None
+
+def get_cider_metric():
+    global _CIDER_METRIC
+    if _CIDER_METRIC is None:
+        # Uses the Kamichanw/CIDEr metric on the Hub
+        _CIDER_METRIC = evaluate.load("Kamichanw/CIDEr")
+    return _CIDER_METRIC
+
+def compute_cider(preds: List[str], refs: List[str]) -> float:
+    """
+    Corpus CIDEr using the Hugging Face evaluate implementation.
+
+    preds: list of hypothesis captions (strings)
+    refs:  list of reference captions (strings)
+
+    We have exactly one reference per prediction, so we wrap each ref
+    in a singleton list, as the metric expects List[List[str]].
+    """
+    if not preds:
+        return 0.0
+
+    metric = get_cider_metric()
+
+    # Metric expects:
+    #   predictions: List[str]
+    #   references: List[List[str]]  (list of reference captions per prediction)
+    references_wrapped = [[r or ""] for r in refs]
+    predictions = [p or "" for p in preds]
+
+    result = metric.compute(predictions=predictions, references=references_wrapped)
+    # The metric returns something like {"CIDEr": value}
+    score = float(result.get("CIDEr", 0.0))
+
+    return score
+# Global handle for BERTScore metric (lazy-loaded)
+_BERTSCORE_METRIC = None
+
+def get_bertscore_metric():
+    global _BERTSCORE_METRIC
+    if _BERTSCORE_METRIC is None:
+        # This uses the 'bert-score' metric from Hugging Face evaluate
+        _BERTSCORE_METRIC = evaluate.load("bertscore")
+    return _BERTSCORE_METRIC
+
+def compute_bertscore(preds: List[str], refs: List[str]) -> float:
+    """
+    Corpus BERTScore (F1), averaged over all examples.
+    Returns score on 0-100 scale for consistency with BLEU/METEOR/CIDEr.
+    """
+    if not preds:
+        return 0.0
+
+    metric = get_bertscore_metric()
+
+    # BERTScore expects:
+    #   predictions: List[str]
+    #   references:  List[str]
+    result = metric.compute(
+        predictions=[p or "" for p in preds],
+        references=[r or "" for r in refs],
+        lang="en",
+        model_type="bert-base-uncased",  # lighter, good enough for this project
+        rescale_with_baseline=True,
+    )
+
+    # result["f1"] is a list of per-example scores in [0, 1]
+    f1_scores = result["f1"]
+    avg_f1 = sum(f1_scores) / len(f1_scores)
+
+    return float(avg_f1 * 100.0)
+
+# Registry of metric name -> function
+METRIC_FNS: Dict[str, Callable[[List[str], List[str]], float]] = {
+    "bleu": compute_bleu,
+    "meteor": compute_meteor,
+    "cider": compute_cider,
+    "bertscore": compute_bertscore,
+}
+
+# ---------------------------------------------------------------------
+# Helpers to load logs and compute basic stats
+# ---------------------------------------------------------------------
+
+def load_records(path: Path) -> List[Dict[str, Any]]:
+    assert path.exists(), f"Log file not found: {path}"
+    recs: List[Dict[str, Any]] = []
+    with path.open("r", encoding="utf-8") as f:
+        for line in f:
+            line = line.strip()
+            if not line:
+                continue
+            recs.append(json.loads(line))
+    return recs
+
+
+def avg_len(texts: List[str]) -> float:
+    if not texts:
+        return 0.0
+    return sum(len(t.split()) for t in texts) / len(texts)
+
+
+def compute_all_metrics(preds: List[str], refs: List[str]) -> Dict[str, float]:
+    """
+    Run all registered metrics in METRIC_FNS and return a dict
+    {metric_name: value}.
+    """
+    results: Dict[str, float] = {}
+    for name, fn in METRIC_FNS.items():
+        results[name] = fn(preds, refs)
+    return results
+
+
+def summarize(path: Path) -> Dict[str, Any]:
+    recs = load_records(path)
+
+    if not recs:
+        base = {
+            "log": str(path),
+            "prompting_method": "",
+            "model_config": "",
+            "num_records": 0,
+            "avg_gt_len": 0.0,
+            "avg_pred_len": 0.0,
+        }
+        # Fill metrics with zeros so CSV headers remain consistent
+        for m in METRIC_FNS.keys():
+            base[m] = 0.0
+        return base
+
+    gts = [r["gt_caption"] for r in recs]
+    preds = [r["prediction"] for r in recs]
+
+    avg_gt = avg_len(gts)
+    avg_pred = avg_len(preds)
+    metric_vals = compute_all_metrics(preds, gts)
+
+    tag_pm = recs[0].get("prompting_method", "")
+    tag_cfg = recs[0].get("model_config", "")
+
+    row: Dict[str, Any] = {
+        "log": str(path),
+        "prompting_method": tag_pm,
+        "model_config": tag_cfg,
+        "num_records": len(recs),
+        "avg_gt_len": avg_gt,
+        "avg_pred_len": avg_pred,
+    }
+    row.update(metric_vals)
+    return row
+
+
+# ---------------------------------------------------------------------
+# CSV + pretty table
+# ---------------------------------------------------------------------
+
+def write_csv(rows: List[Dict[str, Any]], out_csv: Path) -> None:
+    out_csv.parent.mkdir(parents=True, exist_ok=True)
+
+    base_fields = [
+        "log",
+        "prompting_method",
+        "model_config",
+        "num_records",
+        "avg_gt_len",
+        "avg_pred_len",
+    ]
+    metric_fields = list(METRIC_FNS.keys())
+    fieldnames = base_fields + metric_fields
+
+    with out_csv.open("w", newline="", encoding="utf-8") as f:
+        writer = csv.DictWriter(f, fieldnames=fieldnames)
+        writer.writeheader()
+        for r in rows:
+            writer.writerow({k: r.get(k, "") for k in fieldnames})
+
+    print(f"\n[INFO] Wrote metrics CSV to: {out_csv}")
+
+
+def print_table(rows: List[Dict[str, Any]]) -> None:
+    """
+    Pretty console output showing all registered metrics dynamically.
+    """
+    metric_names = list(METRIC_FNS.keys())  # e.g. ["bleu", "meteor"]
+
+    print("\n=== Metric Summary ===\n")
+
+    # Build dynamic header
+    header_parts = [
+        f"{'log':45}",
+        f"{'PM':>2}",
+        f"{'CFG':>3}",
+        f"{'#':>5}",
+        f"{'avg_gt':>8}",
+        f"{'avg_pred':>9}",
+    ]
+
+    # Add each metric with fixed width
+    for m in metric_names:
+        header_parts.append(f"{m:>10}")
+
+    header_line = "  ".join(header_parts)
+    print(header_line)
+    print("-" * len(header_line))
+
+    # Table rows
+    for r in rows:
+        base_parts = [
+            f"{Path(r['log']).name:45}",
+            f"{str(r['prompting_method']):>2}",
+            f"{str(r['model_config']):>3}",
+            f"{r['num_records']:5d}",
+            f"{r['avg_gt_len']:8.2f}",
+            f"{r['avg_pred_len']:9.2f}",
+        ]
+
+        metric_parts = [f"{r[m]:10.2f}" for m in metric_names]
+        line = "  ".join(base_parts + metric_parts)
+        print(line)
+
+
+# ---------------------------------------------------------------------
+# Main
+# ---------------------------------------------------------------------
+
+def main():
+    parser = argparse.ArgumentParser(
+        description="Compute metrics and caption length statistics for eval logs."
+    )
+    parser.add_argument(
+        "--logs",
+        nargs="+",
+        required=True,
+        help="Paths to eval logs (JSONL).",
+    )
+    parser.add_argument(
+        "--out-csv",
+        type=str,
+        default=None,
+        help="Optional path to write metrics CSV (e.g., metrics/metrics_subset0_PT.csv).",
+    )
+    args = parser.parse_args()
+
+    rows: List[Dict[str, Any]] = [summarize(Path(lp)) for lp in args.logs]
+
+    print_table(rows)
+
+    if args.out_csv is not None:
+        write_csv(rows, Path(args.out_csv))
+
+
+if __name__ == "__main__":
+    main()
+
+\end{minted}
+
+\section{test\_internvl\_caption.py}
+\begin{minted}[
+    linenos,              % show line numbers
+    breaklines,           % wrap long lines
+    fontsize=\scriptsize  % small text; use \footnotesize if you prefer
+]{python}
+# src/test_internvl_caption.py
+# load_image is used in other files
+import math
+from pathlib import Path
+
+import torch
+import torchvision.transforms as T
+from PIL import Image
+from torchvision.transforms.functional import InterpolationMode
+from transformers import AutoModel, AutoTokenizer
+
+IMAGENET_MEAN = (0.485, 0.456, 0.406)
+IMAGENET_STD = (0.229, 0.224, 0.225)
+
+
+def build_transform(input_size: int):
+    mean, std = IMAGENET_MEAN, IMAGENET_STD
+    return T.Compose(
+        [
+            T.Lambda(lambda img: img.convert("RGB") if img.mode != "RGB" else img),
+            T.Resize((input_size, input_size), interpolation=InterpolationMode.BICUBIC),
+            T.ToTensor(),
+            T.Normalize(mean=mean, std=std),
+        ]
+    )
+
+
+def find_closest_aspect_ratio(aspect_ratio, target_ratios, width, height, image_size):
+    best_ratio_diff = float("inf")
+    best_ratio = (1, 1)
+    area = width * height
+    for ratio in target_ratios:
+        target_aspect_ratio = ratio[0] / ratio[1]
+        ratio_diff = abs(aspect_ratio - target_aspect_ratio)
+        if ratio_diff < best_ratio_diff:
+            best_ratio_diff = ratio_diff
+            best_ratio = ratio
+        elif ratio_diff == best_ratio_diff:
+            if area > 0.5 * image_size * image_size * ratio[0] * ratio[1]:
+                best_ratio = ratio
+    return best_ratio
+
+
+def dynamic_preprocess(image, min_num=1, max_num=12, image_size=448, use_thumbnail=False):
+    orig_width, orig_height = image.size
+    aspect_ratio = orig_width / orig_height
+
+    target_ratios = set(
+        (i, j)
+        for n in range(min_num, max_num + 1)
+        for i in range(1, n + 1)
+        for j in range(1, n + 1)
+        if i * j <= max_num and i * j >= min_num
+    )
+    target_ratios = sorted(target_ratios, key=lambda x: x[0] * x[1])
+
+    target_aspect_ratio = find_closest_aspect_ratio(
+        aspect_ratio, target_ratios, orig_width, orig_height, image_size
+    )
+
+    target_width = image_size * target_aspect_ratio[0]
+    target_height = image_size * target_aspect_ratio[1]
+    blocks = target_aspect_ratio[0] * target_aspect_ratio[1]
+
+    resized_img = image.resize((target_width, target_height))
+    processed_images = []
+    for i in range(blocks):
+        box = (
+            (i % (target_width // image_size)) * image_size,
+            (i // (target_width // image_size)) * image_size,
+            ((i % (target_width // image_size)) + 1) * image_size,
+            ((i // (target_width // image_size)) + 1) * image_size,
+        )
+        split_img = resized_img.crop(box)
+        processed_images.append(split_img)
+
+    assert len(processed_images) == blocks
+
+    if use_thumbnail and len(processed_images) != 1:
+        thumbnail_img = image.resize((image_size, image_size))
+        processed_images.append(thumbnail_img)
+
+    return processed_images
+
+
+def load_image(image_file: str, input_size=448, max_num=12):
+    image = Image.open(image_file).convert("RGB")
+    transform = build_transform(input_size=input_size)
+    images = dynamic_preprocess(
+        image, image_size=input_size, use_thumbnail=True, max_num=max_num
+    )
+    pixel_values = [transform(img) for img in images]
+    pixel_values = torch.stack(pixel_values)
+    return pixel_values
+
+
+def main():
+    # Put any local JPG/PNG here
+    img_path = Path("data/test.jpg")
+    assert img_path.exists(), f"Place a test image at {img_path}"
+
+    model_id = "OpenGVLab/InternVL3_5-2B-Instruct"
+
+    print("Loading model on GPUs...")
+    model = AutoModel.from_pretrained(
+        model_id,
+        torch_dtype=torch.bfloat16,
+        use_flash_attn=False,
+        trust_remote_code=True,
+        device_map="auto",
+    ).eval()
+
+    tokenizer = AutoTokenizer.from_pretrained(
+        model_id,
+        trust_remote_code=True,
+        use_fast=False,
+    )
+
+    pixel_values = load_image(str(img_path), max_num=12).to(torch.bfloat16).cuda()
+
+    generation_config = dict(max_new_tokens=256, do_sample=False)
+
+    # Neutral prompt (baseline)
+    question_neutral = "<image>\nProvide a factual caption for this image."
+    response_neutral = model.chat(
+        tokenizer, pixel_values, question_neutral, generation_config
+    )
+    print("\n[Neutral caption]")
+    print(response_neutral)
+
+    # Detailed prompt (what you care about)
+    question_detailed = (
+        "<image>\nProvide a detailed, comprehensive caption describing all key "
+        "objects, attributes, actions, and context."
+    )
+    response_detailed = model.chat(
+        tokenizer, pixel_values, question_detailed, generation_config
+    )
+    print("\n[Detailed caption]")
+    print(response_detailed)
+
+
+if __name__ == "__main__":
+    main()
+
+\end{minted}
+
+\section{check\_exemplar\_leakage.py}
+\begin{minted}[
+    linenos,              % show line numbers
+    breaklines,           % wrap long lines
+    fontsize=\scriptsize  % small text; use \footnotesize if you prefer
+]{python}
+import argparse
+import json
+from pathlib import Path
+
+
+def load_ids_from_log(path: Path, field: str = "id"):
+    assert path.exists(), f"Log file not found: {path}"
+    ids = set()
+    with path.open("r", encoding="utf-8") as f:
+        for line in f:
+            line = line.strip()
+            if not line:
+                continue
+            rec = json.loads(line)
+            ids.add(int(rec[field]))
+    return ids
+
+
+def main():
+    parser = argparse.ArgumentParser(
+        description="Check whether eval log contains exemplar IDs."
+    )
+    parser.add_argument(
+        "--eval-log",
+        required=True,
+        help="Path to eval_*.jsonl file (e.g., logs/eval_subset0_PT_D_FS.jsonl).",
+    )
+    parser.add_argument(
+        "--exemplar-log",
+        required=True,
+        help=(
+            "Path to *_exemplars.jsonl file "
+            "(e.g., logs/eval_subset0_PT_D_FS_exemplars.jsonl)."
+        ),
+    )
+    args = parser.parse_args()
+
+    eval_log_path = Path(args.eval_log)
+    exemplar_log_path = Path(args.exemplar_log)
+
+    eval_ids = load_ids_from_log(eval_log_path, field="id")
+    exemplar_ids = load_ids_from_log(exemplar_log_path, field="id")
+
+    print(f"[INFO] Exemplar IDs      : {sorted(exemplar_ids)}")
+    print(f"[INFO] Num exemplar IDs  : {len(exemplar_ids)}")
+    print(f"[INFO] Num evaluated IDs : {len(eval_ids)}")
+
+    overlap = exemplar_ids & eval_ids
+    if overlap:
+        print(f"[WARN] Overlap found! Evaluated exemplar IDs: {sorted(overlap)}")
+    else:
+        print("[OK] No exemplar IDs appear in the eval log.")
+
+
+if __name__ == "__main__":
+    main()
+\end{minted}
+\end{appendices}
 
 \end{document}
