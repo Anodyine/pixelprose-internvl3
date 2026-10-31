@@ -8,7 +8,30 @@ This project asks how to make an open vision-language model produce richer, more
 2. **LoRA fine-tuning:** train a small adapter on PixelProse image-caption pairs, then evaluate that adapted model with the same three prompts.
 3. **Evaluation:** measure similarity to held-out PixelProse captions with BLEU, METEOR, CIDEr, BERTScore, and caption length; inspect outputs for repetition and visual errors; consider the memory cost of including example images.
 
-The central question is whether prompt examples, parameter-efficient training, or their combination offers the best improvement for the available compute. The [project report](report.tex) describes the experiment and findings. In that experiment, few-shot prompting improved the pretrained model most clearly, while the limited LoRA run gave modest gains and its combination with few-shot prompting sometimes produced repetitive or off-target text. Automatic scores measure agreement with *PixelProse's captions*, not independent image correctness.
+The central question is whether prompt examples, parameter-efficient training, or their combination offers the best improvement for the available compute. The [rendered project report](report.pdf) ([LaTeX source](report.tex)) describes the experiment and findings. In that experiment, few-shot prompting improved the pretrained model most clearly, while the limited LoRA run gave modest gains and its combination with few-shot prompting sometimes produced repetitive or off-target text. Automatic scores measure agreement with *PixelProse's captions*, not independent image correctness.
+
+## Results at a glance
+
+The reported experiment compared six configurations on the same held-out subset. PT is the pretrained model; FT loads the LoRA adapter. N is the neutral prompt, D the detailed prompt, and D_FS the detailed prompt with multimodal examples.
+
+| Model | Prompt | Images scored | BLEU | METEOR | CIDEr | BERTScore |
+| --- | --- | ---: | ---: | ---: | ---: | ---: |
+| PT | N | 500 | 3.87 | 18.66 | 0.09 | 40.25 |
+| PT | D | 500 | 8.80 | 28.97 | 0.18 | 43.20 |
+| **PT** | **D_FS** | **500** | **10.08** | **33.05** | **0.19** | **47.05** |
+| FT | N | 500 | 8.30 | 32.12 | 0.04 | 42.67 |
+| FT | D | 500 | 8.69 | 33.41 | 0.04 | 43.86 |
+| FT | D_FS | 451 | 7.06 | 30.60 | 0.01 | 38.58 |
+
+The pretrained model with detailed few-shot prompting had the strongest overall agreement with the references. The FT + D_FS run ended after 451 images, so its scores are descriptive and are not a matched 500-image comparison with the other rows. BLEU, METEOR, and BERTScore are shown on a 0–100 scale; **CIDEr is on the metric implementation's native scale**. The historical report's statement that *all* metrics use a 0–100 scale is incorrect for CIDEr. Its caption-length discussion also calls the counts “tokens”; the metric script actually counts whitespace-separated words.
+
+One example from the report's [qualitative gallery](report.pdf) shows the change in output style for a photograph of a rainbow over a field and wooded hill:
+
+> **PT + N:** “A rainbow is visible in the sky above a grassy field with trees in the background.”
+>
+> **PT + D_FS:** “The image depicts a serene landscape featuring a vibrant rainbow arching across the sky. ... Below the rainbow, there is a lush, green field with tall grasses and a variety of trees and bushes.”
+
+The few-shot output is more descriptive, but the reference describes *yellow* foreground grass. This example illustrates both the improvement in detail and why reference-similarity scores alone cannot establish visual accuracy. The PDF shows the image and the full outputs.
 
 ## Set up
 
@@ -55,7 +78,9 @@ python -m src.train_lora \
   --batch-size 4 --num-epochs 1 --max-steps 50
 ```
 
-This tests whether changing a small set of language-model weights improves dense captioning. It applies LoRA to InternVL's language-model attention and MLP projections, using the detailed prompt and PixelProse captions. It saves an adapter, by default, to `checkpoints/internvl3_5_2b_lora_pixelprose/subset2_r32_a64/`. Use `--output-dir PATH` to choose another location, `--resume-from PATH` to continue an adapter, and `--cuda-device N` to choose the training GPU. `--max-length` controls token truncation; `--max-steps` caps optimization steps even if epochs remain.
+This is a **short demonstration run**, capped at 50 optimizer steps. At batch size 4, it can process at most 200 training examples, even though 2,000 records are selected for the training partition. It is not the historical run behind the results table. The report describes approximately 20,000 captioned examples across its final LoRA run, but the original training log and exact command are not retained here, so that count and the final-run settings cannot be verified from this repository. Do not expect this command to reproduce the reported FT scores.
+
+The command applies LoRA to InternVL's language-model attention and MLP projections, using the detailed prompt and PixelProse captions. It saves an adapter, by default, to `checkpoints/internvl3_5_2b_lora_pixelprose/subset2_r32_a64/`. Use `--output-dir PATH` to choose another location, `--resume-from PATH` to continue an adapter, and `--cuda-device N` to choose the training GPU. `--max-length` controls token truncation; `--max-steps` caps optimization steps even if epochs remain.
 
 The script partitions IDs ≥ 1,000 in metadata order: the first `--train-size` for training and the next `--val-size` for validation. It requires both partitions to be nonempty. **The current training loop does not evaluate on the validation partition**; it only reports training loss and saves the adapter. To keep evaluation held out, choose `--max-eval` and `--num-exemplars` below so their combined count is at most 1,000, and keep training on the same subset.
 
@@ -108,7 +133,7 @@ This prints a table and writes a CSV with the number of records, average referen
 | `src/lora_config.py`, `src/train_lora.py` | LoRA configuration and single-GPU training. |
 | `src/eval_captions.py` | PT/FT inference and JSONL logs for all prompt styles. |
 | `scripts/check_exemplar_leakage.py`, `scripts/compute_metrics.py` | Holdout check and quantitative summaries. |
-| `report.tex`, `references.bib` | Full study, methodology, results, discussion, and references. |
+| `report.pdf`, `report.tex`, `references.bib` | Rendered historical study, LaTeX source, and references. |
 | `logs-flawed-ft-examples/` | Tracked example logs illustrating problematic fine-tuned outputs; these are not the complete evaluation logs. |
 
-The current `src/eval_captions.py` uses `repetition_penalty=1.15` and `no_repeat_ngram_size=4`. The final runs described in `report.tex` were made **without** those decoding controls, so new results from the current script are not exact reproductions of the report's numbers. `prompts/detailed_fewshot_anti_repetition.txt` is an experimental prompt file and is not selected by the evaluation CLI. The report contains the historical quantitative results and qualitative examples; generated datasets, checkpoints, complete logs, and metrics CSVs are not tracked in this repository.
+The current `src/eval_captions.py` uses `repetition_penalty=1.15` and `no_repeat_ngram_size=4`. The final runs described in the report were made **without** those decoding controls, so new results from the current script are not exact reproductions of the report's numbers. `prompts/detailed_fewshot_anti_repetition.txt` is an experimental prompt file and is not selected by the evaluation CLI. The report contains the historical quantitative results and qualitative examples; generated datasets, checkpoints, complete logs, and metrics CSVs are not tracked in this repository.
